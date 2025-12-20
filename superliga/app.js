@@ -1,0 +1,3254 @@
+// ========================================
+// SuperLiga - Aplicación Principal
+// ========================================
+
+// Variables globales
+let currentUser = null;
+let isAdmin = false;
+let currentJornada = 1;
+let userPredictions = {};
+let activeJornada = 1;
+let selectedPronosticosLiga = null; // Liga seleccionada para hacer pronósticos
+
+// ========================================
+// INICIALIZACIÓN
+// ========================================
+document.addEventListener('DOMContentLoaded', async () => {
+    // Verificar si hay sesión activa
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+        currentUser = session.user;
+        await loadUserProfile();
+        await showDashboard();
+    }
+
+    // Listener para cambios de autenticación
+    supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+            currentUser = session.user;
+            await loadUserProfile();
+            await showDashboard();
+        } else if (event === 'SIGNED_OUT') {
+            currentUser = null;
+            isAdmin = false;
+            showLandingPage();
+        }
+    });
+
+    // Configurar navegación
+    setupNavigation();
+    
+    // Configurar tabs de clasificación
+    setupClassificationTabs();
+    
+    // Configurar tabs de admin
+    setupAdminTabs();
+    
+    // Cargar equipos en selectores
+    loadTeamsInSelectors();
+    
+    // Cargar jornadas en selectores admin
+    loadJornadasSelectors();
+});
+
+// ========================================
+// AUTENTICACIÓN
+// ========================================
+function showLoginModal() {
+    closeModals();
+    document.getElementById('login-modal').classList.add('active');
+}
+
+function showRegisterModal() {
+    closeModals();
+    document.getElementById('register-modal').classList.add('active');
+}
+
+function showRulesModal() {
+    closeModals();
+    document.getElementById('rules-modal').classList.add('active');
+}
+
+function closeModals() {
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.classList.remove('active');
+    });
+}
+
+// Cerrar modal al hacer clic fuera
+document.querySelectorAll('.modal').forEach(modal => {
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeModals();
+        }
+    });
+});
+
+async function handleLogin(event) {
+    event.preventDefault();
+    
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+
+    try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password
+        });
+
+        if (error) throw error;
+
+        showNotification('¡Bienvenido de nuevo!', 'success');
+        closeModals();
+    } catch (error) {
+        showNotification(error.message || 'Error al iniciar sesión', 'error');
+    }
+}
+
+async function handleRegister(event) {
+    event.preventDefault();
+    
+    const ligaCode = document.getElementById('register-liga-code').value.toUpperCase().trim();
+    const name = document.getElementById('register-name').value;
+    const email = document.getElementById('register-email').value;
+    const password = document.getElementById('register-password').value;
+
+    try {
+        let liga = null;
+        
+        // 1. Si hay código, verificar que existe (opcional)
+        if (ligaCode) {
+            const { data: ligaData, error: ligaError } = await supabase
+                .from('ligas')
+                .select('id, name')
+                .eq('code', ligaCode)
+                .single();
+
+            if (ligaError || !ligaData) {
+                showNotification('El código de liga no existe. Verifica con el creador de tu liga.', 'error');
+                return;
+            }
+            liga = ligaData;
+        }
+
+        // 2. Crear usuario en Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    name: name
+                }
+            }
+        });
+
+        if (authError) throw authError;
+
+        // 3. Crear perfil en la tabla users
+        if (authData.user) {
+            const { error: profileError } = await supabase
+                .from('users')
+                .insert({
+                    id: authData.user.id,
+                    email: email,
+                    name: name,
+                    is_admin: false,
+                    total_points: 0
+                });
+
+            if (profileError) {
+                console.error('Error creando perfil:', profileError);
+            }
+
+            // 4. Si hay código de liga, añadir usuario a la liga
+            if (liga) {
+                const { error: memberError } = await supabase
+                    .from('liga_members')
+                    .insert({
+                        liga_id: liga.id,
+                        user_id: authData.user.id
+                    });
+
+                if (memberError) {
+                    console.error('Error añadiendo a liga:', memberError);
+                }
+            }
+        }
+
+        const message = liga 
+            ? `¡Cuenta creada! Te has unido a "${liga.name}". Revisa tu email.`
+            : '¡Cuenta creada! Puedes unirte a una liga desde tu perfil. Revisa tu email.';
+        
+        showNotification(message, 'success');
+        closeModals();
+        document.getElementById('register-form').reset();
+    } catch (error) {
+        showNotification(error.message || 'Error al registrarse', 'error');
+    }
+}
+
+// Mostrar modal para crear primera liga
+function showCreateFirstLigaModal() {
+    closeModals();
+    document.getElementById('create-first-liga-modal').classList.add('active');
+}
+
+// Crear liga + usuario administrador
+async function handleCreateFirstLiga(event) {
+    event.preventDefault();
+    
+    const ligaName = document.getElementById('first-liga-name').value;
+    const ligaDescription = document.getElementById('first-liga-description').value;
+    const adminName = document.getElementById('admin-name').value;
+    const adminEmail = document.getElementById('admin-email').value;
+    const adminPassword = document.getElementById('admin-password').value;
+    const ligaCode = generateLigaCode();
+
+    try {
+        // 1. Crear usuario en Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+            email: adminEmail,
+            password: adminPassword,
+            options: {
+                data: {
+                    name: adminName
+                }
+            }
+        });
+
+        if (authError) throw authError;
+
+        if (!authData.user) {
+            throw new Error('No se pudo crear el usuario');
+        }
+
+        // 2. Crear perfil en la tabla users (como admin)
+        const { error: profileError } = await supabase
+            .from('users')
+            .insert({
+                id: authData.user.id,
+                email: adminEmail,
+                name: adminName,
+                is_admin: true,
+                total_points: 0
+            });
+
+        if (profileError) {
+            console.error('Error creando perfil:', profileError);
+            throw profileError;
+        }
+
+        // 3. Crear la liga
+        const { data: newLiga, error: ligaError } = await supabase
+            .from('ligas')
+            .insert({
+                name: ligaName,
+                description: ligaDescription,
+                code: ligaCode,
+                created_by: authData.user.id
+            })
+            .select()
+            .single();
+
+        if (ligaError) {
+            console.error('Error creando liga:', ligaError);
+            throw ligaError;
+        }
+
+        // 4. Añadir creador como miembro de la liga
+        const { error: memberError } = await supabase
+            .from('liga_members')
+            .insert({
+                liga_id: newLiga.id,
+                user_id: authData.user.id
+            });
+
+        if (memberError) {
+            console.error('Error añadiendo a liga:', memberError);
+        }
+
+        // Mostrar código de liga al usuario
+        showNotification(`¡Liga creada! Tu código es: ${ligaCode}`, 'success');
+        closeModals();
+        
+        // Mostrar alerta con el código para que lo copie
+        setTimeout(() => {
+            alert(`¡Liga "${ligaName}" creada correctamente!\n\nTu código de liga es:\n\n${ligaCode}\n\nComparte este código con tus amigos para que se registren.\n\nRevisa tu email para confirmar tu cuenta.`);
+        }, 500);
+
+        document.getElementById('create-first-liga-form').reset();
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification(error.message || 'Error al crear la liga', 'error');
+    }
+}
+
+async function handleLogout() {
+    console.log('🚪 Cerrando sesión...');
+    
+    try {
+        const { error } = await supabase.auth.signOut();
+        console.log('Resultado signOut:', error ? 'Error' : 'OK');
+        
+        // Limpiar variables (siempre, aunque haya error)
+        currentUser = null;
+        isAdmin = false;
+        userPredictions = {};
+        
+        // Ocultar link de admin
+        const adminLink = document.getElementById('admin-nav-link');
+        if (adminLink) adminLink.style.display = 'none';
+        
+        // Mostrar página de inicio
+        showLandingPage();
+        
+        if (error) {
+            console.error('Error en signOut:', error);
+        }
+        
+        showNotification('Sesión cerrada correctamente', 'success');
+        console.log('✅ Logout completado');
+    } catch (error) {
+        console.error('❌ Error logout:', error);
+        
+        // Limpiar y mostrar landing de todas formas
+        currentUser = null;
+        isAdmin = false;
+        userPredictions = {};
+        showLandingPage();
+        showNotification('Sesión cerrada', 'warning');
+    }
+}
+
+// ========================================
+// PERFIL DE USUARIO
+// ========================================
+async function loadUserProfile() {
+    if (!currentUser) {
+        console.log('❌ No hay usuario actual');
+        return;
+    }
+
+    console.log('🔍 Cargando perfil para:', currentUser.id, currentUser.email);
+
+    // Mostrar nombre temporal mientras carga
+    const userName = currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'Usuario';
+    document.getElementById('user-name').textContent = userName;
+    updateNavAvatar(userName, null);
+
+    try {
+        // Intentar cargar perfil de la tabla users
+        // Primero intentamos sin avatar_url por si no existe la columna
+        let { data, error } = await supabase
+            .from('users')
+            .select('id, name, email, is_admin, total_points')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+        
+        // Si la consulta falla, intentamos con avatar_url
+        if (error && error.message.includes('avatar_url')) {
+            console.log('⚠️ Columna avatar_url no existe, intentando sin ella');
+            const retry = await supabase
+                .from('users')
+                .select('id, name, email, is_admin, total_points')
+                .eq('id', currentUser.id)
+                .maybeSingle();
+            data = retry.data;
+            error = retry.error;
+        }
+
+        console.log('📦 Resultado consulta users:', { data, error });
+
+        if (error) {
+            console.error('❌ Error en consulta:', error.message, error.code);
+            // Si hay error de permisos, intentar verificar admin de otra forma
+            if (error.code === '42501' || error.message.includes('permission')) {
+                console.log('⚠️ Error de permisos RLS - verificando con función alternativa');
+            }
+            isAdmin = false;
+            updateAdminVisibility();
+            return;
+        }
+
+        if (data) {
+            // Verificar is_admin de múltiples formas
+            isAdmin = data.is_admin === true || data.is_admin === 1 || data.is_admin === 'true';
+            const displayName = data.name || userName;
+            document.getElementById('user-name').textContent = displayName;
+            
+            // Actualizar avatar en navegación (avatar_url puede no existir)
+            const avatarUrl = data.avatar_url || null;
+            updateNavAvatar(displayName, avatarUrl);
+            
+            console.log('✅ Perfil cargado:', {
+                nombre: displayName,
+                is_admin_raw: data.is_admin,
+                is_admin_type: typeof data.is_admin,
+                isAdmin: isAdmin,
+                puntos: data.total_points
+            });
+        } else {
+            console.log('⚠️ No se encontró perfil en tabla users');
+            isAdmin = false;
+        }
+
+        console.log('🔍 Llamando updateAdminVisibility con isAdmin =', isAdmin);
+        updateAdminVisibility();
+
+    } catch (error) {
+        console.error('❌ Error en loadUserProfile:', error);
+        isAdmin = false;
+        updateAdminVisibility();
+    }
+}
+
+// Función separada para actualizar visibilidad del admin
+function updateAdminVisibility() {
+    console.log('🔍 updateAdminVisibility llamado. isAdmin =', isAdmin);
+    
+    const adminLink = document.getElementById('admin-nav-link');
+    
+    if (!adminLink) {
+        console.error('❌ No se encontró el elemento admin-nav-link');
+        // Intentar de nuevo después de un pequeño delay
+        setTimeout(() => {
+            const retryLink = document.getElementById('admin-nav-link');
+            if (retryLink) {
+                console.log('✅ Elemento encontrado en reintento');
+                updateAdminVisibility();
+            }
+        }, 500);
+        return;
+    }
+    
+    if (isAdmin) {
+        adminLink.style.display = 'flex';
+        adminLink.style.visibility = 'visible';
+        adminLink.style.opacity = '1';
+        adminLink.classList.add('active');
+        console.log('✅ Panel Admin VISIBLE - estilos aplicados');
+    } else {
+        adminLink.style.display = 'none';
+        adminLink.style.visibility = 'hidden';
+        adminLink.classList.remove('active');
+        console.log('🔒 Panel Admin OCULTO (no es admin)');
+    }
+}
+
+// ========================================
+// NAVEGACIÓN
+// ========================================
+function showLandingPage() {
+    document.getElementById('landing-page').classList.add('active');
+    document.getElementById('dashboard-page').classList.remove('active');
+}
+
+async function showDashboard() {
+    const landingPage = document.getElementById('landing-page');
+    const dashboardPage = document.getElementById('dashboard-page');
+    
+    if (!landingPage || !dashboardPage) {
+        console.error('❌ Elementos de página no encontrados');
+        return;
+    }
+
+    landingPage.classList.remove('active');
+    dashboardPage.classList.add('active');
+    
+    try {
+        // Cargar datos iniciales (esperar a que se completen)
+        await loadActiveJornada();
+        
+        // Cargar en paralelo las que no dependen entre sí
+        await Promise.allSettled([
+            loadUserPredictions(),
+            loadProgress()
+        ]);
+        
+        // Cargar dashboard principal
+        await loadDashboard();
+        
+        // Asegurar que la visibilidad del admin se actualice después de mostrar el dashboard
+        setTimeout(() => {
+            updateAdminVisibility();
+        }, 100);
+    } catch (error) {
+        console.error('❌ Error inicializando dashboard:', error);
+    }
+}
+
+// ========================================
+// DASHBOARD PRINCIPAL
+// ========================================
+async function loadDashboard() {
+    if (!currentUser) {
+        console.warn('⚠️ No hay usuario para cargar dashboard');
+        return;
+    }
+
+    // Verificar que los elementos existan
+    const userNameEl = document.getElementById('user-name');
+    const dashboardUserNameEl = document.getElementById('dashboard-user-name');
+    const detailEl = document.getElementById('dashboard-liga-detail');
+
+    if (!userNameEl || !dashboardUserNameEl) {
+        console.error('❌ Elementos del dashboard no encontrados');
+        return;
+    }
+
+    // Actualizar nombre en el dashboard
+    const userName = userNameEl.textContent || 'Usuario';
+    dashboardUserNameEl.textContent = userName;
+
+    // Ocultar vista de detalle si está visible
+    if (detailEl) {
+        detailEl.style.display = 'none';
+    }
+
+    // Cargar tarjetas de ligas
+    try {
+        await loadDashboardLigaCards();
+    } catch (error) {
+        console.error('❌ Error cargando dashboard:', error);
+        const container = document.getElementById('dashboard-ligas-grid');
+        if (container) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Error</h3>
+                    <p>No se pudo cargar el dashboard. <button class="btn btn-primary btn-small" onclick="loadDashboard()" style="margin-top: 12px;">Reintentar</button></p>
+                </div>
+            `;
+        }
+    }
+}
+
+async function loadDashboardLigaCards() {
+    const container = document.getElementById('dashboard-ligas-grid');
+    if (!container) {
+        console.error('❌ No se encontró dashboard-ligas-grid');
+        return;
+    }
+
+    if (!currentUser) {
+        container.innerHTML = '<p style="text-align: center; color: var(--slate-500);">Debes iniciar sesión</p>';
+        return;
+    }
+
+    container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
+
+    try {
+        // Obtener puntos totales del usuario
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('total_points')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+
+        if (userError) {
+            console.warn('⚠️ Error obteniendo puntos del usuario:', userError);
+        }
+
+        const totalPoints = userData?.total_points || 0;
+
+        // Obtener posición global
+        const { data: allUsers } = await supabase
+            .from('users')
+            .select('id, total_points')
+            .order('total_points', { ascending: false });
+
+        let globalPosition = '-';
+        if (allUsers) {
+            globalPosition = allUsers.findIndex(u => u.id === currentUser.id) + 1 || '-';
+        }
+
+        // Obtener ligas del usuario
+        const { data: userLigas, error } = await supabase
+            .from('liga_members')
+            .select('liga_id, ligas(id, name)')
+            .eq('user_id', currentUser.id);
+
+        if (error) throw error;
+
+        let cardsHTML = '';
+
+        // Tarjeta de Total Global
+        cardsHTML += `
+            <div class="liga-card-dashboard" onclick="showDashboardLigaDetail('all', 'Total Global')">
+                <div class="liga-card-header-dashboard">
+                    <div class="liga-card-icon global">
+                        <i class="fas fa-globe"></i>
+                    </div>
+                    <h3>Total Global</h3>
+                </div>
+                <div class="liga-card-stats">
+                    <div class="liga-stat">
+                        <span class="liga-stat-label">Puntos</span>
+                        <span class="liga-stat-value">${totalPoints}</span>
+                    </div>
+                    <div class="liga-stat">
+                        <span class="liga-stat-label">Posición</span>
+                        <span class="liga-stat-value">${globalPosition}</span>
+                    </div>
+                    <div class="liga-stat">
+                        <span class="liga-stat-label">Jugadores</span>
+                        <span class="liga-stat-value">${allUsers?.length || 0}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Tarjetas de cada liga
+        if (userLigas && userLigas.length > 0) {
+            for (const item of userLigas) {
+                if (!item.ligas) continue;
+
+                const ligaId = item.ligas.id;
+                const ligaName = item.ligas.name;
+
+                // Obtener miembros de la liga
+                const { data: members } = await supabase
+                    .from('liga_members')
+                    .select('user_id, users(id, name, total_points)')
+                    .eq('liga_id', ligaId);
+
+                if (!members) continue;
+
+                // Calcular posición del usuario en la liga
+                const sortedMembers = members
+                    .map(m => ({
+                        id: m.users?.id,
+                        points: m.users?.total_points || 0
+                    }))
+                    .sort((a, b) => b.points - a.points);
+
+                const userPosition = sortedMembers.findIndex(m => m.id === currentUser.id) + 1 || '-';
+                const membersCount = sortedMembers.length;
+
+                cardsHTML += `
+                    <div class="liga-card-dashboard" onclick="showDashboardLigaDetail('${ligaId}', '${ligaName}')">
+                        <div class="liga-card-header-dashboard">
+                            <div class="liga-card-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <h3>${ligaName}</h3>
+                        </div>
+                        <div class="liga-card-stats">
+                            <div class="liga-stat">
+                                <span class="liga-stat-label">Puntos</span>
+                                <span class="liga-stat-value">${totalPoints}</span>
+                            </div>
+                            <div class="liga-stat">
+                                <span class="liga-stat-label">Posición</span>
+                                <span class="liga-stat-value">${userPosition}</span>
+                            </div>
+                            <div class="liga-stat">
+                                <span class="liga-stat-label">Miembros</span>
+                                <span class="liga-stat-value">${membersCount}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        container.innerHTML = cardsHTML;
+
+    } catch (error) {
+        console.error('Error cargando tarjetas de ligas:', error);
+        container.innerHTML = '<p style="text-align: center; color: var(--slate-500);">Error al cargar las ligas</p>';
+    }
+}
+
+async function showDashboardLigaDetail(ligaId, ligaName) {
+    const detailContainer = document.getElementById('dashboard-liga-detail');
+    const detailContent = document.getElementById('dashboard-detail-content');
+    const detailTitle = document.getElementById('dashboard-detail-title');
+    const gridContainer = document.getElementById('dashboard-ligas-grid');
+
+    if (!detailContainer || !detailContent || !detailTitle) {
+        console.error('❌ Elementos del detalle de liga no encontrados');
+        return;
+    }
+
+    // Ocultar grid de tarjetas
+    if (gridContainer) {
+        gridContainer.style.display = 'none';
+    }
+    
+    // Mostrar vista de detalle
+    detailContainer.style.display = 'block';
+    detailTitle.textContent = ligaName;
+    detailContent.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
+
+    try {
+        let users = [];
+
+        if (ligaId === 'all') {
+            // Clasificación global
+            const { data: allUsers, error } = await supabase
+                .from('users')
+                .select('id, name, total_points')
+                .order('total_points', { ascending: false });
+
+            if (error) {
+                console.error('❌ Error obteniendo usuarios globales:', error);
+                throw error;
+            }
+            users = allUsers || [];
+        } else {
+            // Clasificación de la liga específica
+            const { data: members, error: membersError } = await supabase
+                .from('liga_members')
+                .select('user_id, users(id, name, total_points)')
+                .eq('liga_id', ligaId);
+
+            if (membersError) {
+                console.error('❌ Error obteniendo miembros de liga:', membersError);
+                throw membersError;
+            }
+
+            if (members) {
+                users = members
+                    .map(m => ({
+                        id: m.users?.id,
+                        name: m.users?.name || 'Usuario',
+                        total_points: m.users?.total_points || 0
+                    }))
+                    .sort((a, b) => b.total_points - a.total_points);
+            }
+        }
+
+        if (users.length === 0) {
+            detailContent.innerHTML = '<p style="text-align: center; color: var(--slate-500);">Sin clasificación</p>';
+            return;
+        }
+
+        // Generar tabla de clasificación
+        const classificationHTML = `
+            <div class="dashboard-classification-table">
+                <div class="classification-header">
+                    <span class="pos-col">#</span>
+                    <span class="player-col">Jugador</span>
+                    <span class="points-col">Puntos</span>
+                </div>
+                ${users.map((user, index) => `
+                    <div class="classification-row ${user.id === currentUser.id ? 'current-user' : ''}">
+                        <span class="pos-col ${index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : ''}">${index + 1}</span>
+                        <div class="player-col">
+                            <div class="player-avatar">${getInitials(user.name)}</div>
+                            <span class="player-name">${user.name}</span>
+                        </div>
+                        <span class="points-col">${user.total_points || 0}</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+        detailContent.innerHTML = classificationHTML;
+
+    } catch (error) {
+        console.error('❌ Error cargando detalle de liga:', error);
+        const errorMessage = error.message || 'Error desconocido';
+        if (detailContent) {
+            detailContent.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Error</h3>
+                    <p>No se pudo cargar la clasificación: ${errorMessage}</p>
+                    <button class="btn btn-primary btn-small" onclick="showDashboardLigaDetail('${ligaId}', '${ligaName}')" style="margin-top: 12px;">
+                        <i class="fas fa-redo"></i> Reintentar
+                    </button>
+                </div>
+            `;
+        }
+    }
+}
+
+function closeDashboardDetail() {
+    const detailEl = document.getElementById('dashboard-liga-detail');
+    const gridEl = document.getElementById('dashboard-ligas-grid');
+    
+    if (detailEl) {
+        detailEl.style.display = 'none';
+    }
+    
+    if (gridEl) {
+        gridEl.style.display = 'grid';
+    }
+}
+
+async function loadDashboardLigaSelector() {
+    const selector = document.getElementById('dashboard-liga-select');
+    if (!selector) return;
+
+    try {
+        const { data: userLigas, error } = await supabase
+            .from('liga_members')
+            .select('liga_id, ligas(id, name)')
+            .eq('user_id', currentUser.id);
+
+        if (error) throw error;
+
+        // Mantener la opción "all" y limpiar el resto
+        selector.innerHTML = '<option value="all">Todas las ligas (Global)</option>';
+
+        if (userLigas && userLigas.length > 0) {
+            userLigas.forEach(item => {
+                if (item.ligas) {
+                    const option = document.createElement('option');
+                    option.value = item.ligas.id;
+                    option.textContent = item.ligas.name;
+                    selector.appendChild(option);
+                }
+            });
+        }
+
+        // Restaurar selección anterior si existe
+        if (selectedDashboardLiga !== 'all') {
+            selector.value = selectedDashboardLiga;
+        }
+    } catch (error) {
+        console.error('Error cargando ligas para selector:', error);
+    }
+}
+
+async function loadDashboardStats(ligaId = 'all') {
+    try {
+        // Obtener datos del usuario
+        const { data: userData } = await supabase
+            .from('users')
+            .select('total_points')
+            .eq('id', currentUser.id)
+            .maybeSingle();
+
+        const totalPoints = userData?.total_points || 0;
+        document.getElementById('dashboard-total-points').textContent = totalPoints;
+
+        let position = '-';
+        let ligaName = '';
+        let membersCount = 0;
+
+        if (ligaId === 'all') {
+            // Datos globales
+            const { data: allUsers } = await supabase
+                .from('users')
+                .select('id, total_points')
+                .order('total_points', { ascending: false });
+
+            if (allUsers) {
+                position = allUsers.findIndex(u => u.id === currentUser.id) + 1 || '-';
+            }
+
+            // Contar todas las ligas del usuario
+            const { data: ligas } = await supabase
+                .from('liga_members')
+                .select('id')
+                .eq('user_id', currentUser.id);
+            
+            membersCount = ligas?.length || 0;
+            ligaName = '';
+        } else {
+            // Datos de la liga específica
+            const { data: ligaData } = await supabase
+                .from('ligas')
+                .select('name')
+                .eq('id', ligaId)
+                .single();
+
+            if (ligaData) {
+                ligaName = ligaData.name;
+            }
+
+            // Obtener miembros de la liga con sus puntos
+            const { data: members, error: membersError } = await supabase
+                .from('liga_members')
+                .select('user_id, users(id, total_points)')
+                .eq('liga_id', ligaId);
+
+            if (!membersError && members) {
+                // Ordenar por puntos
+                const sortedMembers = members
+                    .map(m => ({
+                        id: m.users?.id,
+                        points: m.users?.total_points || 0
+                    }))
+                    .sort((a, b) => b.points - a.points);
+
+                position = sortedMembers.findIndex(m => m.id === currentUser.id) + 1 || '-';
+                membersCount = sortedMembers.length;
+            }
+        }
+
+        document.getElementById('dashboard-position').textContent = position;
+        const ligaNameSpan = document.getElementById('dashboard-liga-name');
+        if (ligaNameSpan) {
+            ligaNameSpan.textContent = ligaId === 'all' ? '' : `en ${ligaName}`;
+        }
+        document.getElementById('dashboard-leagues-count').textContent = membersCount;
+
+        // Progreso de pronósticos (siempre global)
+        await loadProgress();
+        const progressText = document.querySelector('.nav-progress')?.textContent || '0%';
+        document.getElementById('dashboard-progress').textContent = progressText;
+
+        // Jornada actual
+        document.getElementById('dashboard-jornada-num').textContent = currentJornada || 1;
+
+    } catch (error) {
+        console.error('Error cargando estadísticas del dashboard:', error);
+    }
+}
+
+async function loadDashboardMatches() {
+    const container = document.getElementById('dashboard-matches-preview');
+    container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
+
+    try {
+        const { data: matches, error } = await supabase
+            .from('matches')
+            .select('*')
+            .eq('jornada', currentJornada)
+            .order('match_date', { ascending: true })
+            .limit(5);
+
+        if (error) throw error;
+
+        if (!matches || matches.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: var(--slate-500);">No hay partidos próximos</p>';
+            return;
+        }
+
+        // Cargar predicciones del usuario
+        await loadUserPredictions();
+
+        const formatDate = (date) => {
+            const d = new Date(date);
+            return `${d.getDate()}/${d.getMonth() + 1} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+        };
+
+        container.innerHTML = matches.map(match => {
+            const prediction = userPredictions[match.id] || {};
+            const matchDate = new Date(match.match_date);
+            const now = new Date();
+            const isLocked = matchDate < now;
+            const isFinished = match.home_score !== null && match.away_score !== null;
+
+            return `
+                <div class="match-preview-item ${isLocked ? 'locked' : ''}">
+                    <div class="match-preview-date">${formatDate(match.match_date)}</div>
+                    <div class="match-preview-teams">
+                        <span class="team-home">${match.home_team}</span>
+                        <span class="match-preview-score">
+                            ${prediction.home_prediction !== undefined && prediction.home_prediction !== null ? prediction.home_prediction : '-'}
+                            -
+                            ${prediction.away_prediction !== undefined && prediction.away_prediction !== null ? prediction.away_prediction : '-'}
+                        </span>
+                        <span class="team-away">${match.away_team}</span>
+                    </div>
+                    ${isFinished ? `<div class="match-preview-result">Resultado: ${match.home_score} - ${match.away_score}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('Error cargando partidos del dashboard:', error);
+        container.innerHTML = '<p style="text-align: center; color: var(--slate-500);">Error al cargar partidos</p>';
+    }
+}
+
+async function loadDashboardTop5(ligaId = 'all') {
+    const container = document.getElementById('dashboard-top5');
+    const titleSpan = document.getElementById('dashboard-top5-title');
+    container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
+
+    try {
+        let users = [];
+        let ligaName = '';
+
+        if (ligaId === 'all') {
+            // Top 5 global
+            const { data: allUsers, error } = await supabase
+                .from('users')
+                .select('id, name, total_points')
+                .order('total_points', { ascending: false })
+                .limit(5);
+
+            if (error) throw error;
+            users = allUsers || [];
+        } else {
+            // Obtener nombre de la liga
+            const { data: ligaData } = await supabase
+                .from('ligas')
+                .select('name')
+                .eq('id', ligaId)
+                .single();
+
+            if (ligaData) {
+                ligaName = ligaData.name;
+            }
+
+            // Top 5 de la liga específica
+            const { data: members, error: membersError } = await supabase
+                .from('liga_members')
+                .select('user_id, users(id, name, total_points)')
+                .eq('liga_id', ligaId);
+
+            if (membersError) throw membersError;
+
+            if (members) {
+                // Ordenar por puntos y tomar top 5
+                users = members
+                    .map(m => ({
+                        id: m.users?.id,
+                        name: m.users?.name || 'Usuario',
+                        total_points: m.users?.total_points || 0
+                    }))
+                    .sort((a, b) => b.total_points - a.total_points)
+                    .slice(0, 5);
+            }
+        }
+
+        // Actualizar título
+        if (titleSpan) {
+            titleSpan.textContent = ligaId === 'all' ? '' : `- ${ligaName}`;
+        }
+
+        if (users.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: var(--slate-500);">Sin clasificación</p>';
+            return;
+        }
+
+        container.innerHTML = users.map((user, index) => `
+            <div class="top5-item ${user.id === currentUser.id ? 'current-user' : ''}">
+                <span class="top5-position ${index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : ''}">${index + 1}</span>
+                <span class="top5-name">${user.name}</span>
+                <span class="top5-points">${user.total_points || 0} pts</span>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('Error cargando top 5:', error);
+        container.innerHTML = '<p style="text-align: center; color: var(--slate-500);">Error al cargar clasificación</p>';
+    }
+}
+
+function setupQuickActions() {
+    document.querySelectorAll('.quick-action-card[data-page]').forEach(card => {
+        card.addEventListener('click', (e) => {
+            e.preventDefault();
+            const page = card.dataset.page;
+            
+            // Actualizar navegación
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            const navLink = document.querySelector(`.nav-link[data-page="${page}"]`);
+            if (navLink) navLink.classList.add('active');
+            
+            // Mostrar sección
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(`${page}-section`).classList.add('active');
+            
+            // Cargar datos
+            if (page === 'pronosticos') {
+                loadMatches();
+            } else if (page === 'clasificaciones') {
+                loadIndividualClassification();
+            } else if (page === 'ligas') {
+                loadUserLigas();
+            }
+        });
+    });
+
+    document.querySelectorAll('.view-all-link[data-page]').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const page = link.dataset.page;
+            
+            // Actualizar navegación
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            const navLink = document.querySelector(`.nav-link[data-page="${page}"]`);
+            if (navLink) navLink.classList.add('active');
+            
+            // Mostrar sección
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(`${page}-section`).classList.add('active');
+            
+            // Cargar datos
+            if (page === 'pronosticos') {
+                loadMatches();
+            } else if (page === 'clasificaciones') {
+                loadIndividualClassification();
+            }
+        });
+    });
+}
+
+function setupNavigation() {
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const page = link.dataset.page;
+            
+            // Actualizar links activos
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            link.classList.add('active');
+            
+            // Mostrar sección correspondiente
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(`${page}-section`).classList.add('active');
+            
+            // Cargar datos según la sección
+            if (page === 'dashboard') {
+                loadDashboard();
+            } else if (page === 'pronosticos') {
+                loadPronosticosLigaSelector();
+                // loadMatches se llamará cuando se seleccione una liga
+            } else if (page === 'clasificaciones') {
+                loadIndividualClassification();
+            } else if (page === 'ligas') {
+                loadUserLigas();
+            } else if (page === 'admin') {
+                loadAdminData();
+            }
+        });
+    });
+}
+
+// ========================================
+// JORNADAS
+// ========================================
+async function loadActiveJornada() {
+    try {
+        const { data, error } = await supabase
+            .from('config')
+            .select('value')
+            .eq('key', 'active_jornada')
+            .single();
+
+        if (data && data.value) {
+            activeJornada = parseInt(data.value) || 1;
+            currentJornada = activeJornada;
+        } else {
+            // Valor por defecto si no existe en config
+            activeJornada = 1;
+            currentJornada = 1;
+            console.warn('⚠️ No se encontró jornada activa en config, usando 1');
+        }
+        
+        updateJornadaDisplay();
+    } catch (error) {
+        console.warn('⚠️ Error cargando jornada activa, usando valor por defecto:', error);
+        // Valores por defecto si falla
+        activeJornada = 1;
+        currentJornada = 1;
+        updateJornadaDisplay();
+    }
+}
+
+function updateJornadaDisplay() {
+    const jornadaEl = document.getElementById('current-jornada');
+    if (jornadaEl) {
+        jornadaEl.textContent = `Jornada ${currentJornada || 1}`;
+    }
+}
+
+function changeJornada(delta) {
+    const newJornada = currentJornada + delta;
+    if (newJornada >= 1 && newJornada <= CONFIG_TEMPORADA.TOTAL_JORNADAS) {
+        currentJornada = newJornada;
+        updateJornadaDisplay();
+        loadMatches();
+    }
+}
+
+// ========================================
+// PRONÓSTICOS POR LIGA
+// ========================================
+async function loadPronosticosLigaSelector() {
+    const selector = document.getElementById('pronosticos-liga-select');
+    if (!selector) return;
+
+    if (!currentUser) {
+        selector.innerHTML = '<option value="">Debes iniciar sesión</option>';
+        return;
+    }
+
+    try {
+        const { data: userLigas, error } = await supabase
+            .from('liga_members')
+            .select('liga_id, ligas(id, name)')
+            .eq('user_id', currentUser.id);
+
+        if (error) {
+            console.error('Error cargando ligas:', error);
+            selector.innerHTML = '<option value="">Error al cargar ligas</option>';
+            return;
+        }
+
+        selector.innerHTML = '<option value="">Selecciona una liga</option>';
+
+        if (userLigas && userLigas.length > 0) {
+            userLigas.forEach(item => {
+                if (item.ligas) {
+                    const option = document.createElement('option');
+                    option.value = item.ligas.id;
+                    option.textContent = item.ligas.name;
+                    selector.appendChild(option);
+                }
+            });
+
+            // Si hay una liga seleccionada previamente, restaurarla
+            if (selectedPronosticosLiga) {
+                selector.value = selectedPronosticosLiga;
+                loadMatches();
+            }
+        } else {
+            selector.innerHTML = '<option value="">No estás en ninguna liga</option>';
+        }
+    } catch (error) {
+        console.error('Error en loadPronosticosLigaSelector:', error);
+    }
+}
+
+// ========================================
+// PARTIDOS Y PRONÓSTICOS
+// ========================================
+async function loadMatches() {
+    console.log('⚽ Cargando partidos de jornada:', currentJornada);
+    
+    const container = document.getElementById('matches-container');
+    if (!container) {
+        console.error('❌ No se encontró el contenedor matches-container');
+        return;
+    }
+
+    // Obtener liga seleccionada
+    const ligaSelect = document.getElementById('pronosticos-liga-select');
+    if (!ligaSelect) {
+        container.innerHTML = '<p style="text-align: center; color: var(--slate-500);">Error: selector de liga no encontrado</p>';
+        return;
+    }
+
+    const ligaId = ligaSelect.value;
+    if (!ligaId) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-users"></i>
+                <h3>Selecciona una liga</h3>
+                <p>Por favor, selecciona una liga del menú desplegable para ver y hacer tus pronósticos.</p>
+            </div>
+        `;
+        return;
+    }
+
+    selectedPronosticosLiga = ligaId;
+
+    // Verificar que currentJornada esté inicializado
+    if (!currentJornada || currentJornada < 1) {
+        console.warn('⚠️ currentJornada no inicializado, usando 1');
+        currentJornada = 1;
+    }
+
+    container.innerHTML = `
+        <div class="loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Cargando partidos...</p>
+        </div>
+    `;
+
+    try {
+        const { data: matches, error } = await supabase
+            .from('matches')
+            .select('*')
+            .eq('jornada', currentJornada)
+            .order('match_date', { ascending: true });
+
+        console.log('📦 Resultado consulta matches:', { matches, error, count: matches?.length });
+
+        if (error) throw error;
+
+        if (!matches || matches.length === 0) {
+            console.log('⚠️ No hay partidos para jornada', currentJornada);
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-calendar-times"></i>
+                    <h3>No hay partidos</h3>
+                    <p>No hay partidos programados para la Jornada ${currentJornada}.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Cargar predicciones del usuario para esta liga
+        try {
+            await loadUserPredictions(ligaId);
+        } catch (predError) {
+            console.warn('⚠️ Error cargando predicciones, continuando sin ellas:', predError);
+        }
+
+        console.log('🎯 Renderizando', matches.length, 'partidos');
+        
+        // Header de la tabla
+        const tableHeader = `
+            <div class="matches-table-header">
+                <span class="col-jornada">J</span>
+                <span class="col-fecha">Fecha</span>
+                <span class="col-hora">Hora</span>
+                <span class="col-local">Equipo Local</span>
+                <span class="col-goles">Goles</span>
+                <span class="col-goles">Goles</span>
+                <span class="col-visitante">Equipo Visitante</span>
+                <span class="col-resultado">Resultado</span>
+            </div>
+        `;
+        
+        container.innerHTML = tableHeader + matches.map(match => createMatchCard(match)).join('');
+        console.log('✅ Partidos renderizados');
+    } catch (error) {
+        console.error('❌ Error cargando partidos:', error);
+        const errorMessage = error.message || 'Error desconocido';
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error</h3>
+                <p>No se pudieron cargar los partidos: ${errorMessage}</p>
+                <button class="btn btn-primary btn-small" onclick="loadMatches()" style="margin-top: 12px;">
+                    <i class="fas fa-redo"></i> Reintentar
+                </button>
+            </div>
+        `;
+    }
+}
+
+async function loadUserPredictions(ligaId = null) {
+    if (!currentUser) {
+        console.log('⚠️ No hay usuario para cargar predicciones');
+        return;
+    }
+
+    if (!ligaId) {
+        console.warn('⚠️ No se proporcionó liga_id, no se cargarán predicciones');
+        userPredictions = {};
+        return;
+    }
+
+    console.log('📥 Cargando predicciones para usuario:', currentUser.id, 'liga:', ligaId);
+
+    try {
+        let query = supabase
+            .from('predictions')
+            .select('*')
+            .eq('user_id', currentUser.id);
+
+        // Si la columna liga_id existe, filtrar por ella
+        // Si no existe (migración pendiente), cargar todas (compatibilidad hacia atrás)
+        query = query.eq('liga_id', ligaId);
+
+        const { data, error } = await query;
+
+        console.log('📦 Predicciones desde Supabase:', data);
+
+        if (error) {
+            // Si el error es que la columna no existe, intentar sin filtrar (compatibilidad)
+            if (error.message && error.message.includes('liga_id')) {
+                console.warn('⚠️ Columna liga_id no existe aún, cargando todas las predicciones');
+                const { data: allData, error: allError } = await supabase
+                    .from('predictions')
+                    .select('*')
+                    .eq('user_id', currentUser.id);
+                
+                if (allError) throw allError;
+                
+                // Convertir a objeto
+                userPredictions = {};
+                if (allData && allData.length > 0) {
+                    allData.forEach(pred => {
+                        userPredictions[pred.match_id] = pred;
+                    });
+                }
+                return;
+            }
+            throw error;
+        }
+
+        // Convertir a objeto para fácil acceso
+        userPredictions = {};
+        if (data && data.length > 0) {
+            data.forEach(pred => {
+                userPredictions[pred.match_id] = pred;
+                console.log(`  Partido ${pred.match_id}: ${pred.home_prediction} - ${pred.away_prediction}`);
+            });
+        } else {
+            console.log('  (Sin predicciones guardadas para esta liga)');
+        }
+        
+        console.log('✅ Total predicciones cargadas:', Object.keys(userPredictions).length);
+    } catch (error) {
+        console.error('❌ Error cargando predicciones:', error);
+        userPredictions = {};
+    }
+}
+
+function createMatchCard(match) {
+    const prediction = userPredictions[match.id] || {};
+    const matchDate = new Date(match.match_date);
+    const now = new Date();
+    const isLocked = matchDate < now;
+    const isFinished = match.home_score !== null && match.away_score !== null;
+
+    let pointsEarned = null;
+    if (isFinished && prediction.home_prediction !== null && prediction.away_prediction !== null) {
+        pointsEarned = calculatePoints(
+            prediction.home_prediction,
+            prediction.away_prediction,
+            match.home_score,
+            match.away_score
+        );
+    }
+
+    // Generar opciones del desplegable: "-" por defecto, luego 0-9
+    const generateScoreOptions = (selectedValue) => {
+        // Verificar si hay un valor válido guardado (incluido el 0)
+        const hasValue = typeof selectedValue === 'number';
+        
+        // Opción vacía "-" como primera opción
+        let options = `<option value="" ${!hasValue ? 'selected' : ''}>-</option>`;
+        
+        // Opciones 0-9
+        for (let i = 0; i <= 9; i++) {
+            const isSelected = hasValue && selectedValue === i;
+            options += `<option value="${i}" ${isSelected ? 'selected' : ''}>${i}</option>`;
+        }
+        return options;
+    };
+
+    // Formato de fecha: DD/MM
+    const formatDate = (date) => {
+        const d = date.getDate().toString().padStart(2, '0');
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        return `${d}/${m}`;
+    };
+    
+    // Formato de hora: HH:MM
+    const formatTime = (date) => {
+        const h = date.getHours().toString().padStart(2, '0');
+        const min = date.getMinutes().toString().padStart(2, '0');
+        return `${h}:${min}`;
+    };
+
+    return `
+        <div class="match-row ${isLocked ? 'locked' : ''} ${isFinished ? 'finished' : ''}" data-match-id="${match.id}">
+            <span class="col-jornada">${match.jornada}</span>
+            <span class="col-fecha">${formatDate(matchDate)}</span>
+            <span class="col-hora">${formatTime(matchDate)}</span>
+            <span class="col-local">${match.home_team}</span>
+            <span class="col-goles">
+                <select class="goal-select ${prediction.home_prediction !== undefined && prediction.home_prediction !== null ? 'has-value' : ''}" 
+                        id="home-${match.id}" 
+                        ${isLocked ? 'disabled' : ''} 
+                        onchange="markPredictionChanged(${match.id})">
+                    ${generateScoreOptions(prediction.home_prediction)}
+                </select>
+            </span>
+            <span class="col-goles">
+                <select class="goal-select ${prediction.away_prediction !== undefined && prediction.away_prediction !== null ? 'has-value' : ''}" 
+                        id="away-${match.id}" 
+                        ${isLocked ? 'disabled' : ''} 
+                        onchange="markPredictionChanged(${match.id})">
+                    ${generateScoreOptions(prediction.away_prediction)}
+                </select>
+            </span>
+            <span class="col-visitante">${match.away_team}</span>
+            <span class="col-resultado">
+                ${isFinished ? `
+                    <span class="result-final">${match.home_score} - ${match.away_score}</span>
+                    ${pointsEarned !== null ? `<span class="result-points">${pointsEarned}pts</span>` : ''}
+                ` : '-'}
+            </span>
+        </div>
+    `;
+}
+
+function markPredictionChanged(matchId) {
+    const row = document.querySelector(`[data-match-id="${matchId}"]`);
+    if (row) {
+        row.style.background = 'rgba(230, 126, 0, 0.08)';
+    }
+    // Actualizar clase has-value en el select
+    const homeSelect = document.getElementById(`home-${matchId}`);
+    const awaySelect = document.getElementById(`away-${matchId}`);
+    if (homeSelect) homeSelect.classList.toggle('has-value', homeSelect.value !== '');
+    if (awaySelect) awaySelect.classList.toggle('has-value', awaySelect.value !== '');
+}
+
+async function resetPredictions() {
+    if (!confirm('¿Estás seguro de que quieres borrar todos los pronósticos de esta jornada? Se eliminarán de la base de datos.')) {
+        return;
+    }
+    
+    if (!currentUser) {
+        showNotification('Debes iniciar sesión', 'error');
+        return;
+    }
+    
+    try {
+        // Obtener IDs de partidos de esta jornada
+        const matchIds = Array.from(document.querySelectorAll('.match-row'))
+            .map(row => parseInt(row.dataset.matchId));
+        
+        console.log('🗑️ Eliminando predicciones para partidos:', matchIds);
+        
+        // Eliminar predicciones de la base de datos
+        const { error } = await supabase
+            .from('predictions')
+            .delete()
+            .eq('user_id', currentUser.id)
+            .in('match_id', matchIds);
+        
+        if (error) throw error;
+        
+        // Limpiar selectores en la interfaz
+        const selects = document.querySelectorAll('.goal-select:not(:disabled)');
+        selects.forEach(select => {
+            select.value = '';
+            select.classList.remove('has-value');
+        });
+        
+        // Limpiar estilos de filas modificadas
+        document.querySelectorAll('.match-row').forEach(row => {
+            row.style.background = '';
+        });
+        
+        // Actualizar predicciones locales
+        matchIds.forEach(id => delete userPredictions[id]);
+        
+        // Actualizar progreso
+        await loadProgress();
+        
+        showNotification('Pronósticos de esta jornada eliminados', 'success');
+    } catch (error) {
+        console.error('Error eliminando predicciones:', error);
+        showNotification('Error al eliminar pronósticos', 'error');
+    }
+}
+
+async function savePredictions() {
+    console.log('💾 Guardando pronósticos...');
+    
+    if (!currentUser) {
+        showNotification('Debes iniciar sesión', 'error');
+        return;
+    }
+
+    // Obtener liga seleccionada
+    const ligaSelect = document.getElementById('pronosticos-liga-select');
+    if (!ligaSelect || !ligaSelect.value) {
+        showNotification('Debes seleccionar una liga primero', 'error');
+        return;
+    }
+
+    const ligaId = parseInt(ligaSelect.value);
+    console.log('💾 Guardando para liga:', ligaId);
+
+    // Buscar filas de partidos (match-row es la clase actual)
+    const matchRows = document.querySelectorAll('.match-row:not(.locked)');
+    console.log('Filas encontradas:', matchRows.length);
+    
+    const predictions = [];
+
+    matchRows.forEach(row => {
+        const matchId = row.dataset.matchId;
+        const homeSelect = document.getElementById(`home-${matchId}`);
+        const awaySelect = document.getElementById(`away-${matchId}`);
+
+        console.log(`Partido ${matchId}:`, homeSelect?.value, '-', awaySelect?.value);
+
+        if (homeSelect && awaySelect && homeSelect.value !== '' && awaySelect.value !== '') {
+            predictions.push({
+                user_id: currentUser.id,
+                match_id: parseInt(matchId),
+                liga_id: ligaId,
+                home_prediction: parseInt(homeSelect.value),
+                away_prediction: parseInt(awaySelect.value)
+            });
+        }
+    });
+
+    console.log('Pronósticos a guardar:', predictions.length);
+
+    if (predictions.length === 0) {
+        showNotification('No hay pronósticos para guardar', 'warning');
+        return;
+    }
+
+    try {
+        console.log('📤 Enviando a Supabase:', predictions);
+        
+        // Upsert predictions (intentar con liga_id, si falla por columna no existente, intentar sin ella)
+        let { data: savedData, error } = await supabase
+            .from('predictions')
+            .upsert(predictions, { 
+                onConflict: 'user_id,match_id,liga_id',
+                ignoreDuplicates: false 
+            })
+            .select();
+
+        // Si falla porque la columna liga_id no existe, intentar sin ella (compatibilidad)
+        if (error && error.message && error.message.includes('liga_id')) {
+            console.warn('⚠️ Columna liga_id no existe, guardando sin ella (compatibilidad)');
+            // Remover liga_id de las predicciones
+            const predictionsWithoutLiga = predictions.map(p => {
+                const { liga_id, ...rest } = p;
+                return rest;
+            });
+            
+            const retry = await supabase
+                .from('predictions')
+                .upsert(predictionsWithoutLiga, { 
+                    onConflict: 'user_id,match_id',
+                    ignoreDuplicates: false 
+                })
+                .select();
+            
+            savedData = retry.data;
+            error = retry.error;
+        }
+
+        console.log('📦 Respuesta de Supabase:', { savedData, error });
+
+        if (error) throw error;
+
+        showNotification(`¡${predictions.length} pronósticos guardados!`, 'success');
+        
+        // Recargar predicciones y actualizar progreso
+        await loadUserPredictions();
+        await loadProgress();
+        
+        // Quitar indicador de cambios
+        matchRows.forEach(row => {
+            row.style.background = '';
+        });
+    } catch (error) {
+        console.error('Error guardando predicciones:', error);
+        showNotification('Error al guardar pronósticos', 'error');
+    }
+}
+
+// ========================================
+// CÁLCULO DE PUNTOS
+// ========================================
+function calculatePoints(predHome, predAway, realHome, realAway) {
+    let points = 0;
+
+    // 1X2 (48 puntos)
+    const predResult = predHome > predAway ? '1' : (predHome < predAway ? '2' : 'X');
+    const realResult = realHome > realAway ? '1' : (realHome < realAway ? '2' : 'X');
+    if (predResult === realResult) {
+        points += PUNTUACION.RESULTADO_1X2;
+    }
+
+    // Goles local exactos (15 puntos)
+    if (predHome === realHome) {
+        points += PUNTUACION.GOLES_LOCAL;
+    }
+
+    // Goles visitante exactos (15 puntos)
+    if (predAway === realAway) {
+        points += PUNTUACION.GOLES_VISITANTE;
+    }
+
+    // Diferencia de goles (12 puntos)
+    const predDiff = predHome - predAway;
+    const realDiff = realHome - realAway;
+    if (predDiff === realDiff) {
+        points += PUNTUACION.DIFERENCIA_GOLES;
+    }
+
+    return points;
+}
+
+// ========================================
+// PROGRESO
+// ========================================
+async function loadProgress() {
+    if (!currentUser) return;
+
+    const progressEl = document.getElementById('progress-percentage');
+    if (!progressEl) {
+        console.warn('⚠️ Elemento progress-percentage no encontrado');
+        return;
+    }
+
+    try {
+        // Verificar que activeJornada esté inicializado
+        if (!activeJornada || activeJornada < 1) {
+            console.warn('⚠️ activeJornada no inicializado, usando currentJornada');
+            activeJornada = currentJornada || 1;
+        }
+
+        // Obtener total de partidos de la jornada activa
+        const { data: matches, error: matchError } = await supabase
+            .from('matches')
+            .select('id')
+            .eq('jornada', activeJornada);
+
+        if (matchError) {
+            console.warn('⚠️ Error obteniendo partidos para progreso:', matchError);
+            progressEl.textContent = '0%';
+            return;
+        }
+
+        const matchIds = matches?.map(m => m.id) || [];
+        if (matchIds.length === 0) {
+            progressEl.textContent = '0%';
+            return;
+        }
+
+        // Obtener predicciones del usuario para esa jornada
+        const { data: predictions, error: predError } = await supabase
+            .from('predictions')
+            .select('match_id')
+            .eq('user_id', currentUser.id)
+            .in('match_id', matchIds);
+
+        if (predError) {
+            console.warn('⚠️ Error obteniendo predicciones para progreso:', predError);
+            progressEl.textContent = '0%';
+            return;
+        }
+
+        const totalMatches = matchIds.length;
+        const predictedMatches = predictions?.length || 0;
+        const percentage = totalMatches > 0 ? Math.round((predictedMatches / totalMatches) * 100) : 0;
+
+        progressEl.textContent = `${percentage}%`;
+    } catch (error) {
+        console.error('❌ Error calculando progreso:', error);
+        if (progressEl) {
+            progressEl.textContent = '0%';
+        }
+    }
+}
+
+// ========================================
+// CLASIFICACIONES
+// ========================================
+function setupClassificationTabs() {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`${tab}-tab`).classList.add('active');
+            
+            if (tab === 'individual') {
+                loadIndividualClassification();
+            } else if (tab === 'liga') {
+                loadLigasForSelect();
+            }
+        });
+    });
+}
+
+async function loadIndividualClassification() {
+    const container = document.getElementById('individual-leaderboard');
+    if (!container) {
+        console.error('❌ No se encontró individual-leaderboard');
+        return;
+    }
+
+    container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
+
+    try {
+        // Obtener usuarios
+        const { data: users, error: usersError } = await supabase
+            .from('users')
+            .select('id, name, total_points')
+            .order('total_points', { ascending: false })
+            .limit(100);
+
+        if (usersError) {
+            console.error('❌ Error obteniendo usuarios:', usersError);
+            throw usersError;
+        }
+
+        if (!users || users.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-trophy"></i>
+                    <h3>Sin clasificación</h3>
+                    <p>Aún no hay puntuaciones registradas.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Obtener todas las predicciones con puntos
+        let predictions = [];
+        try {
+            const { data: predData, error: predError } = await supabase
+                .from('predictions')
+                .select('user_id, match_id, points, matches(jornada)')
+                .not('points', 'is', null);
+            
+            if (predError) {
+                console.warn('⚠️ Error obteniendo predicciones, continuando sin ellas:', predError);
+            } else {
+                predictions = predData || [];
+            }
+        } catch (predErr) {
+            console.warn('⚠️ Error en consulta de predicciones:', predErr);
+        }
+
+        // Obtener jornadas con partidos que tienen resultados
+        const { data: matches, error: matchError } = await supabase
+            .from('matches')
+            .select('jornada')
+            .not('home_score', 'is', null);
+
+        // Calcular jornadas únicas con resultados
+        const jornadasConResultados = [...new Set(matches?.map(m => m.jornada) || [])].sort((a, b) => a - b);
+
+        // Calcular puntos por usuario y jornada
+        const userPoints = {};
+        users.forEach(user => {
+            userPoints[user.id] = {
+                name: user.name,
+                total: user.total_points || 0,
+                jornadas: {}
+            };
+            jornadasConResultados.forEach(j => {
+                userPoints[user.id].jornadas[j] = 0;
+            });
+        });
+
+        // Sumar puntos por jornada
+        if (predictions) {
+            predictions.forEach(pred => {
+                if (userPoints[pred.user_id] && pred.matches?.jornada) {
+                    userPoints[pred.user_id].jornadas[pred.matches.jornada] += pred.points || 0;
+                }
+            });
+        }
+
+        // Ordenar usuarios por total
+        const sortedUsers = users.sort((a, b) => (b.total_points || 0) - (a.total_points || 0));
+
+        // Generar header con jornadas
+        const jornadaHeaders = jornadasConResultados.map(j => `<span class="jornada-col">J${j}</span>`).join('');
+
+        container.innerHTML = `
+            <div class="classification-table">
+                <div class="classification-header">
+                    <span class="pos-col">#</span>
+                    <span class="player-col">Jugador</span>
+                    <span class="total-col">Total</span>
+                    ${jornadaHeaders}
+                </div>
+                ${sortedUsers.map((user, index) => {
+                    const userData = userPoints[user.id];
+                    const jornadaCells = jornadasConResultados.map(j => 
+                        `<span class="jornada-col">${userData.jornadas[j] || 0}</span>`
+                    ).join('');
+                    
+                    return `
+                        <div class="classification-row ${currentUser && user.id === currentUser.id ? 'current-user' : ''}">
+                            <span class="pos-col ${index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : ''}">${index + 1}</span>
+                            <div class="player-col">
+                                <div class="player-avatar">${getInitials(user.name)}</div>
+                                <span class="player-name">${user.name}</span>
+                            </div>
+                            <span class="total-col">${userData.total}</span>
+                            ${jornadaCells}
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    } catch (error) {
+        console.error('❌ Error cargando clasificación:', error);
+        const errorMessage = error.message || 'Error desconocido';
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error</h3>
+                <p>No se pudo cargar la clasificación: ${errorMessage}</p>
+                <button class="btn btn-primary btn-small" onclick="loadIndividualClassification()" style="margin-top: 12px;">
+                    <i class="fas fa-redo"></i> Reintentar
+                </button>
+            </div>
+        `;
+    }
+}
+
+async function loadLigasForSelect() {
+    if (!currentUser) return;
+
+    try {
+        const { data: userLigas, error } = await supabase
+            .from('liga_members')
+            .select('liga_id, ligas(id, name)')
+            .eq('user_id', currentUser.id);
+
+        if (error) throw error;
+
+        const select = document.getElementById('liga-select');
+        select.innerHTML = '<option value="">Selecciona una liga</option>';
+        
+        if (userLigas) {
+            userLigas.forEach(item => {
+                if (item.ligas) {
+                    select.innerHTML += `<option value="${item.ligas.id}">${item.ligas.name}</option>`;
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error cargando ligas:', error);
+    }
+}
+
+async function loadLigaClassification() {
+    const ligaId = document.getElementById('liga-select').value;
+    const container = document.getElementById('liga-leaderboard');
+    
+    if (!ligaId) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
+
+    try {
+        // Obtener miembros de la liga con sus puntos
+        const { data, error } = await supabase
+            .from('liga_members')
+            .select('user_id, users(id, name, total_points)')
+            .eq('liga_id', ligaId)
+            .order('users(total_points)', { ascending: false });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-users"></i>
+                    <h3>Sin miembros</h3>
+                    <p>Esta liga no tiene miembros.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Ordenar por puntos
+        const sortedData = data.sort((a, b) => (b.users?.total_points || 0) - (a.users?.total_points || 0));
+
+        container.innerHTML = `
+            <div class="leaderboard-header">
+                <span>#</span>
+                <span>Jugador</span>
+                <span>Puntos</span>
+            </div>
+            ${sortedData.map((member, index) => `
+                <div class="leaderboard-row ${currentUser && member.users?.id === currentUser.id ? 'current-user' : ''}">
+                    <span class="position ${index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : ''}">${index + 1}</span>
+                    <div class="player-info">
+                        <div class="player-avatar">${getInitials(member.users?.name || 'U')}</div>
+                        <span class="player-name">${member.users?.name || 'Usuario'}</span>
+                    </div>
+                    <span class="player-points">${member.users?.total_points || 0}</span>
+                </div>
+            `).join('')}
+        `;
+    } catch (error) {
+        console.error('Error cargando clasificación de liga:', error);
+    }
+}
+
+// ========================================
+// LIGAS / PORRAS
+// ========================================
+function showCreateLigaModal() {
+    console.log('📝 Abriendo modal crear liga...');
+    closeModals();
+    const modal = document.getElementById('create-liga-modal');
+    console.log('Modal encontrado:', modal);
+    if (modal) {
+        modal.classList.add('active');
+        console.log('✅ Modal activado');
+    } else {
+        console.error('❌ Modal create-liga-modal no encontrado');
+    }
+}
+
+function showJoinLigaModal() {
+    closeModals();
+    document.getElementById('join-liga-modal').classList.add('active');
+}
+
+async function createLiga(event) {
+    event.preventDefault();
+
+    if (!currentUser) {
+        showNotification('Debes iniciar sesión', 'error');
+        return;
+    }
+
+    const name = document.getElementById('liga-name').value;
+    const description = document.getElementById('liga-description').value;
+    const code = generateLigaCode();
+
+    try {
+        // Crear liga
+        const { data: liga, error: ligaError } = await supabase
+            .from('ligas')
+            .insert({
+                name,
+                description,
+                code,
+                created_by: currentUser.id
+            })
+            .select()
+            .single();
+
+        if (ligaError) throw ligaError;
+
+        // Añadir creador como miembro
+        const { error: memberError } = await supabase
+            .from('liga_members')
+            .insert({
+                liga_id: liga.id,
+                user_id: currentUser.id
+            });
+
+        if (memberError) throw memberError;
+
+        showNotification('¡Liga creada correctamente!', 'success');
+        closeModals();
+        document.getElementById('create-liga-form').reset();
+        loadUserLigas();
+    } catch (error) {
+        console.error('Error creando liga:', error);
+        showNotification('Error al crear la liga', 'error');
+    }
+}
+
+async function joinLiga(event) {
+    event.preventDefault();
+
+    if (!currentUser) {
+        showNotification('Debes iniciar sesión', 'error');
+        return;
+    }
+
+    const code = document.getElementById('liga-code').value.toUpperCase();
+
+    try {
+        // Buscar liga por código
+        const { data: liga, error: ligaError } = await supabase
+            .from('ligas')
+            .select('id')
+            .eq('code', code)
+            .single();
+
+        if (ligaError || !liga) {
+            showNotification('Código de liga no válido', 'error');
+            return;
+        }
+
+        // Verificar si ya es miembro
+        const { data: existing } = await supabase
+            .from('liga_members')
+            .select('id')
+            .eq('liga_id', liga.id)
+            .eq('user_id', currentUser.id)
+            .single();
+
+        if (existing) {
+            showNotification('Ya eres miembro de esta liga', 'warning');
+            return;
+        }
+
+        // Unirse a la liga
+        const { error: joinError } = await supabase
+            .from('liga_members')
+            .insert({
+                liga_id: liga.id,
+                user_id: currentUser.id
+            });
+
+        if (joinError) throw joinError;
+
+        showNotification('¡Te has unido a la liga!', 'success');
+        closeModals();
+        document.getElementById('join-liga-form').reset();
+        loadUserLigas();
+    } catch (error) {
+        console.error('Error uniéndose a liga:', error);
+        showNotification('Error al unirse a la liga', 'error');
+    }
+}
+
+async function loadUserLigas() {
+    if (!currentUser) {
+        console.warn('⚠️ No hay usuario para cargar ligas');
+        return;
+    }
+
+    const container = document.getElementById('ligas-container');
+    if (!container) {
+        console.error('❌ No se encontró ligas-container');
+        return;
+    }
+
+    container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
+
+    try {
+        const { data, error } = await supabase
+            .from('liga_members')
+            .select(`
+                liga_id,
+                ligas (
+                    id,
+                    name,
+                    description,
+                    code,
+                    created_by
+                )
+            `)
+            .eq('user_id', currentUser.id);
+
+        if (error) {
+            console.error('❌ Error obteniendo ligas:', error);
+            throw error;
+        }
+
+        if (!data || data.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-users"></i>
+                    <h3>No estás en ninguna liga</h3>
+                    <p>Crea una liga o únete a una existente.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Obtener conteo de miembros para cada liga
+        const ligaIds = data.map(item => item.ligas?.id).filter(Boolean);
+        const { data: memberCounts } = await supabase
+            .from('liga_members')
+            .select('liga_id')
+            .in('liga_id', ligaIds);
+
+        const counts = {};
+        memberCounts?.forEach(m => {
+            counts[m.liga_id] = (counts[m.liga_id] || 0) + 1;
+        });
+
+        container.innerHTML = data.map(item => {
+            if (!item.ligas) return '';
+            const liga = item.ligas;
+            const memberCount = counts[liga.id] || 1;
+            
+            return `
+                <div class="liga-card" onclick="showLigaDetail('${liga.id}')">
+                    <div class="liga-card-header">
+                        <h3>${liga.name}</h3>
+                        <div class="liga-members">
+                            <i class="fas fa-users"></i>
+                            ${memberCount} miembros
+                        </div>
+                    </div>
+                    ${liga.description ? `<p class="liga-description">${liga.description}</p>` : ''}
+                    <div class="liga-code">
+                        <i class="fas fa-key"></i>
+                        <span>${liga.code}</span>
+                        <button class="btn btn-small" onclick="event.stopPropagation(); copyToClipboard('${liga.code}')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <div class="liga-share">
+                        <button class="share-btn facebook" onclick="event.stopPropagation(); shareOnFacebook('${liga.code}')">
+                            <i class="fab fa-facebook"></i>
+                        </button>
+                        <button class="share-btn twitter" onclick="event.stopPropagation(); shareOnTwitter('${liga.code}')">
+                            <i class="fab fa-twitter"></i>
+                        </button>
+                        <button class="share-btn whatsapp" onclick="event.stopPropagation(); shareOnWhatsapp('${liga.code}')">
+                            <i class="fab fa-whatsapp"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error cargando ligas:', error);
+    }
+}
+
+async function showLigaDetail(ligaId) {
+    console.log('🏆 Abriendo detalle de liga:', ligaId);
+    
+    const modal = document.getElementById('liga-detail-modal');
+    const content = document.getElementById('liga-detail-content');
+    
+    content.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
+    modal.classList.add('active');
+
+    try {
+        // Obtener info de la liga
+        console.log('📥 Cargando info de liga...');
+        const { data: liga, error: ligaError } = await supabase
+            .from('ligas')
+            .select('id, name, description, code, created_by')
+            .eq('id', ligaId)
+            .single();
+
+        console.log('Liga:', liga, 'Error:', ligaError);
+        if (ligaError) throw ligaError;
+
+        // Obtener miembros (consulta simple sin join)
+        console.log('📥 Cargando miembros...');
+        const { data: memberIds, error: membersError } = await supabase
+            .from('liga_members')
+            .select('user_id')
+            .eq('liga_id', ligaId);
+
+        console.log('Member IDs:', memberIds, 'Error:', membersError);
+        if (membersError) throw membersError;
+
+        // Obtener datos de usuarios por separado
+        let members = [];
+        if (memberIds && memberIds.length > 0) {
+            const userIds = memberIds.map(m => m.user_id);
+            const { data: usersData, error: usersError } = await supabase
+                .from('users')
+                .select('id, name, total_points')
+                .in('id', userIds);
+            
+            console.log('Users:', usersData, 'Error:', usersError);
+            if (!usersError && usersData) {
+                members = usersData;
+            }
+        }
+
+        // Ordenar por puntos
+        const sortedMembers = members.sort((a, b) => (b.total_points || 0) - (a.total_points || 0));
+
+        console.log('✅ Renderizando detalle de liga');
+        content.innerHTML = `
+            <h2><i class="fas fa-trophy"></i> ${liga.name}</h2>
+            <div class="liga-detail-info">
+                ${liga.description ? `<p><strong>Descripción:</strong> ${liga.description}</p>` : ''}
+                <p><strong>Código:</strong> <span style="font-family: monospace; color: var(--primary-600);">${liga.code}</span></p>
+                <p><strong>Miembros:</strong> ${members.length}</p>
+            </div>
+            <h3 style="margin-bottom: 15px;"><i class="fas fa-medal"></i> Clasificación de la Liga</h3>
+            <div class="leaderboard">
+                <div class="leaderboard-header">
+                    <span>#</span>
+                    <span>Jugador</span>
+                    <span>Puntos</span>
+                </div>
+                ${sortedMembers.length > 0 ? sortedMembers.map((member, index) => `
+                    <div class="leaderboard-row ${currentUser && member.id === currentUser.id ? 'current-user' : ''}">
+                        <span class="position ${index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : ''}">${index + 1}</span>
+                        <div class="player-info">
+                            <div class="player-avatar">${getInitials(member.name || 'U')}</div>
+                            <span class="player-name">${member.name || 'Usuario'}</span>
+                        </div>
+                        <span class="player-points">${member.total_points || 0}</span>
+                    </div>
+                `).join('') : '<p style="text-align: center; color: var(--slate-500);">Sin miembros</p>'}
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error:', error);
+        content.innerHTML = '<p>Error al cargar la información de la liga.</p>';
+    }
+}
+
+// ========================================
+// ADMINISTRACIÓN
+// ========================================
+function setupAdminTabs() {
+    document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.adminTab;
+            
+            document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`${tab}-admin-tab`).classList.add('active');
+            
+            // Cargar datos según tab
+            if (tab === 'resultados') {
+                loadMatchesForResults();
+            } else if (tab === 'usuarios') {
+                loadUsersList();
+            }
+        });
+    });
+}
+
+function loadTeamsInSelectors() {
+    const homeSelect = document.getElementById('match-home');
+    const awaySelect = document.getElementById('match-away');
+    
+    console.log('🏟️ Cargando equipos en selectores...');
+    
+    if (homeSelect && awaySelect) {
+        // Limpiar opciones existentes excepto la primera
+        homeSelect.innerHTML = '<option value="">Seleccionar...</option>';
+        awaySelect.innerHTML = '<option value="">Seleccionar...</option>';
+        
+        EQUIPOS_LALIGA.forEach(team => {
+            homeSelect.innerHTML += `<option value="${team}">${team}</option>`;
+            awaySelect.innerHTML += `<option value="${team}">${team}</option>`;
+        });
+        console.log('✅ Equipos cargados:', EQUIPOS_LALIGA.length);
+    } else {
+        console.log('⚠️ Selectores de equipos no encontrados');
+    }
+}
+
+function loadJornadasSelectors() {
+    const adminSelect = document.getElementById('admin-jornada-select');
+    const resultsSelect = document.getElementById('results-jornada-select');
+    
+    for (let i = 1; i <= CONFIG_TEMPORADA.TOTAL_JORNADAS; i++) {
+        const option = `<option value="${i}">Jornada ${i}</option>`;
+        if (adminSelect) adminSelect.innerHTML += option;
+        if (resultsSelect) resultsSelect.innerHTML += option;
+    }
+}
+
+async function loadAdminData() {
+    console.log('⚙️ Cargando panel de administración...');
+    
+    if (!isAdmin) {
+        showNotification('No tienes permisos de administrador', 'error');
+        return;
+    }
+    
+    // Cargar equipos en selectores
+    loadTeamsInSelectors();
+    
+    // Cargar jornadas en selectores
+    loadJornadasSelectors();
+    
+    // Cargar partidos
+    loadAdminMatches();
+    
+    console.log('✅ Panel admin cargado');
+}
+
+async function addMatch(event) {
+    event.preventDefault();
+    console.log('📝 Añadiendo partido...');
+
+    const jornada = document.getElementById('match-jornada').value;
+    const matchDate = document.getElementById('match-datetime').value;
+    const homeTeam = document.getElementById('match-home').value;
+    const awayTeam = document.getElementById('match-away').value;
+
+    console.log('Datos:', { jornada, matchDate, homeTeam, awayTeam });
+
+    // Validaciones
+    if (!jornada || !matchDate || !homeTeam || !awayTeam) {
+        showNotification('Rellena todos los campos', 'error');
+        console.error('❌ Campos vacíos');
+        return;
+    }
+
+    if (homeTeam === awayTeam) {
+        showNotification('El equipo local y visitante no pueden ser el mismo', 'error');
+        return;
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('matches')
+            .insert({
+                jornada: parseInt(jornada),
+                match_date: matchDate,
+                home_team: homeTeam,
+                away_team: awayTeam
+            })
+            .select();
+
+        console.log('Resultado insert:', { data, error });
+
+        if (error) throw error;
+
+        showNotification('✅ Partido añadido correctamente', 'success');
+        document.getElementById('add-match-form').reset();
+        loadAdminMatches();
+    } catch (error) {
+        console.error('❌ Error añadiendo partido:', error);
+        showNotification('Error al añadir el partido: ' + error.message, 'error');
+    }
+}
+
+// ========================================
+// IMPORTAR DESDE EXCEL
+// ========================================
+function clearExcelData() {
+    document.getElementById('excel-data').value = '';
+    document.getElementById('import-preview').innerHTML = '';
+}
+
+async function importFromExcel() {
+    const excelData = document.getElementById('excel-data').value.trim();
+    
+    if (!excelData) {
+        showNotification('No hay datos para importar', 'warning');
+        return;
+    }
+
+    const lines = excelData.split('\n').filter(line => line.trim());
+    const matches = [];
+    const errors = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        // Separar por tabulación o múltiples espacios
+        const parts = line.split(/\t|(?:  +)/).map(p => p.trim()).filter(p => p);
+        
+        if (parts.length < 5) {
+            errors.push({ line: i + 1, error: `Faltan columnas (tiene ${parts.length}, necesita 5)`, data: line });
+            continue;
+        }
+
+        const [jornadaStr, fechaStr, horaStr, homeTeam, awayTeam] = parts;
+
+        // Validar jornada
+        const jornada = parseInt(jornadaStr);
+        if (isNaN(jornada) || jornada < 1 || jornada > 38) {
+            errors.push({ line: i + 1, error: `Jornada inválida: ${jornadaStr}`, data: line });
+            continue;
+        }
+
+        // Parsear fecha y hora
+        let matchDate;
+        try {
+            matchDate = parseSpanishDate(fechaStr, horaStr);
+            if (!matchDate || isNaN(matchDate.getTime())) {
+                throw new Error('Fecha inválida');
+            }
+        } catch (e) {
+            errors.push({ line: i + 1, error: `Fecha/hora inválida: ${fechaStr} ${horaStr}`, data: line });
+            continue;
+        }
+
+        // Validar equipos
+        if (homeTeam === awayTeam) {
+            errors.push({ line: i + 1, error: 'Equipo local y visitante son iguales', data: line });
+            continue;
+        }
+
+        matches.push({
+            jornada,
+            match_date: matchDate.toISOString(),
+            home_team: homeTeam,
+            away_team: awayTeam
+        });
+    }
+
+    // Mostrar preview
+    showImportPreview(matches, errors);
+
+    if (matches.length === 0) {
+        showNotification('No hay partidos válidos para importar', 'error');
+        return;
+    }
+
+    // Confirmar importación
+    if (!confirm(`¿Importar ${matches.length} partidos? ${errors.length > 0 ? `(${errors.length} con errores serán ignorados)` : ''}`)) {
+        return;
+    }
+
+    // Insertar en base de datos
+    try {
+        const { data, error } = await supabase
+            .from('matches')
+            .insert(matches);
+
+        if (error) throw error;
+
+        showNotification(`¡${matches.length} partidos importados correctamente!`, 'success');
+        clearExcelData();
+        loadAdminMatches();
+    } catch (error) {
+        console.error('Error importando partidos:', error);
+        showNotification('Error al importar partidos: ' + error.message, 'error');
+    }
+}
+
+function parseSpanishDate(dateStr, timeStr) {
+    // Soporta formatos: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD
+    let day, month, year;
+    
+    if (dateStr.includes('/')) {
+        const parts = dateStr.split('/');
+        if (parts[0].length === 4) {
+            // YYYY/MM/DD
+            [year, month, day] = parts;
+        } else {
+            // DD/MM/YYYY
+            [day, month, year] = parts;
+        }
+    } else if (dateStr.includes('-')) {
+        const parts = dateStr.split('-');
+        if (parts[0].length === 4) {
+            // YYYY-MM-DD
+            [year, month, day] = parts;
+        } else {
+            // DD-MM-YYYY
+            [day, month, year] = parts;
+        }
+    } else {
+        return null;
+    }
+
+    // Parsear hora
+    const [hours, minutes] = timeStr.split(':').map(n => parseInt(n));
+    
+    // Crear fecha
+    const date = new Date(
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        hours || 0,
+        minutes || 0
+    );
+
+    return date;
+}
+
+function showImportPreview(matches, errors) {
+    const container = document.getElementById('import-preview');
+    
+    if (matches.length === 0 && errors.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let html = `
+        <h4><i class="fas fa-eye"></i> Vista Previa</h4>
+        <div class="import-summary">
+            <div class="stat success">
+                <i class="fas fa-check-circle"></i>
+                <span>${matches.length} partidos válidos</span>
+            </div>
+            ${errors.length > 0 ? `
+                <div class="stat error">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>${errors.length} con errores</span>
+                </div>
+            ` : ''}
+        </div>
+    `;
+
+    if (matches.length > 0) {
+        html += `
+            <table class="preview-table">
+                <thead>
+                    <tr>
+                        <th>Jornada</th>
+                        <th>Fecha</th>
+                        <th>Local</th>
+                        <th>Visitante</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${matches.slice(0, 20).map(m => `
+                        <tr>
+                            <td>${m.jornada}</td>
+                            <td>${formatDate(new Date(m.match_date))}</td>
+                            <td>${m.home_team}</td>
+                            <td>${m.away_team}</td>
+                        </tr>
+                    `).join('')}
+                    ${matches.length > 20 ? `
+                        <tr>
+                            <td colspan="4" style="text-align: center; font-style: italic;">
+                                ... y ${matches.length - 20} partidos más
+                            </td>
+                        </tr>
+                    ` : ''}
+                </tbody>
+            </table>
+        `;
+    }
+
+    if (errors.length > 0) {
+        html += `
+            <h4 style="margin-top: 20px; color: var(--danger-color);">
+                <i class="fas fa-exclamation-triangle"></i> Errores encontrados
+            </h4>
+            <table class="preview-table">
+                <thead>
+                    <tr>
+                        <th>Línea</th>
+                        <th>Error</th>
+                        <th>Datos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${errors.map(e => `
+                        <tr class="error-row">
+                            <td>${e.line}</td>
+                            <td>${e.error}</td>
+                            <td style="font-family: monospace; font-size: 0.8rem;">${e.data.substring(0, 50)}...</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    container.innerHTML = html;
+}
+
+async function loadAdminMatches() {
+    const jornada = document.getElementById('admin-jornada-select')?.value || 1;
+    const container = document.getElementById('admin-matches-list');
+    
+    if (!container) return;
+
+    try {
+        const { data, error } = await supabase
+            .from('matches')
+            .select('*')
+            .eq('jornada', jornada)
+            .order('match_date', { ascending: true });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No hay partidos en esta jornada.</p>';
+            return;
+        }
+
+        container.innerHTML = data.map(match => `
+            <div class="admin-match-item">
+                <div>
+                    <div class="admin-match-teams">${match.home_team} vs ${match.away_team}</div>
+                    <div class="admin-match-date">${formatDate(new Date(match.match_date))}</div>
+                </div>
+                <div class="admin-match-actions">
+                    <button class="btn btn-small btn-danger" onclick="deleteMatch(${match.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error cargando partidos:', error);
+    }
+}
+
+async function deleteMatch(matchId) {
+    if (!confirm('¿Estás seguro de eliminar este partido?')) return;
+
+    try {
+        // Primero eliminar predicciones asociadas
+        await supabase
+            .from('predictions')
+            .delete()
+            .eq('match_id', matchId);
+
+        // Luego eliminar el partido
+        const { error } = await supabase
+            .from('matches')
+            .delete()
+            .eq('id', matchId);
+
+        if (error) throw error;
+
+        showNotification('Partido eliminado', 'success');
+        loadAdminMatches();
+    } catch (error) {
+        console.error('Error eliminando partido:', error);
+        showNotification('Error al eliminar el partido', 'error');
+    }
+}
+
+async function loadMatchesForResults() {
+    const jornada = document.getElementById('results-jornada-select')?.value || 1;
+    const container = document.getElementById('results-matches-list');
+    
+    if (!container) return;
+
+    try {
+        const { data, error } = await supabase
+            .from('matches')
+            .select('*')
+            .eq('jornada', jornada)
+            .order('match_date', { ascending: true });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: var(--slate-500);">No hay partidos en esta jornada.</p>';
+            return;
+        }
+
+        // Función para generar opciones del selector
+        const generateResultOptions = (selectedValue) => {
+            const hasValue = typeof selectedValue === 'number';
+            let options = `<option value="" ${!hasValue ? 'selected' : ''}>-</option>`;
+            for (let i = 0; i <= 9; i++) {
+                const isSelected = hasValue && selectedValue === i;
+                options += `<option value="${i}" ${isSelected ? 'selected' : ''}>${i}</option>`;
+            }
+            return options;
+        };
+
+        // Formato de fecha
+        const formatMatchDate = (date) => {
+            const d = date.getDate().toString().padStart(2, '0');
+            const m = (date.getMonth() + 1).toString().padStart(2, '0');
+            return `${d}/${m}`;
+        };
+        
+        const formatMatchTime = (date) => {
+            const h = date.getHours().toString().padStart(2, '0');
+            const min = date.getMinutes().toString().padStart(2, '0');
+            return `${h}:${min}`;
+        };
+
+        // Header de la tabla
+        const tableHeader = `
+            <div class="results-table-header">
+                <span class="col-jornada">J</span>
+                <span class="col-fecha">Fecha</span>
+                <span class="col-hora">Hora</span>
+                <span class="col-local">Equipo Local</span>
+                <span class="col-goles">Goles</span>
+                <span class="col-goles">Goles</span>
+                <span class="col-visitante">Equipo Visitante</span>
+                <span class="col-accion">Acción</span>
+            </div>
+        `;
+
+        container.innerHTML = tableHeader + data.map(match => {
+            const matchDate = new Date(match.match_date);
+            const hasResult = match.home_score !== null && match.away_score !== null;
+            
+            return `
+                <div class="result-row ${hasResult ? 'has-result' : ''}" data-match-id="${match.id}">
+                    <span class="col-jornada">${match.jornada}</span>
+                    <span class="col-fecha">${formatMatchDate(matchDate)}</span>
+                    <span class="col-hora">${formatMatchTime(matchDate)}</span>
+                    <span class="col-local">${match.home_team}</span>
+                    <span class="col-goles">
+                        <select class="goal-select ${match.home_score !== null ? 'has-value' : ''}" 
+                                id="result-home-${match.id}">
+                            ${generateResultOptions(match.home_score)}
+                        </select>
+                    </span>
+                    <span class="col-goles">
+                        <select class="goal-select ${match.away_score !== null ? 'has-value' : ''}" 
+                                id="result-away-${match.id}">
+                            ${generateResultOptions(match.away_score)}
+                        </select>
+                    </span>
+                    <span class="col-visitante">${match.away_team}</span>
+                    <span class="col-accion">
+                        <button class="btn btn-small ${hasResult ? 'btn-secondary' : 'btn-success'}" onclick="saveMatchResult(${match.id})">
+                            <i class="fas fa-check"></i>
+                        </button>
+                    </span>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error cargando partidos:', error);
+    }
+}
+
+async function saveMatchResult(matchId) {
+    const homeSelect = document.getElementById(`result-home-${matchId}`);
+    const awaySelect = document.getElementById(`result-away-${matchId}`);
+    const homeScore = homeSelect.value;
+    const awayScore = awaySelect.value;
+
+    if (homeScore === '' || awayScore === '') {
+        showNotification('Introduce ambos resultados', 'error');
+        return;
+    }
+    
+    // Actualizar clases visuales
+    homeSelect.classList.add('has-value');
+    awaySelect.classList.add('has-value');
+
+    try {
+        // Guardar resultado
+        const { error: matchError } = await supabase
+            .from('matches')
+            .update({
+                home_score: parseInt(homeScore),
+                away_score: parseInt(awayScore)
+            })
+            .eq('id', matchId);
+
+        if (matchError) throw matchError;
+
+        // Calcular puntos para todos los usuarios que hicieron predicción
+        await calculatePointsForMatch(matchId, parseInt(homeScore), parseInt(awayScore));
+
+        showNotification('Resultado guardado y puntos calculados', 'success');
+    } catch (error) {
+        console.error('Error guardando resultado:', error);
+        showNotification('Error al guardar el resultado', 'error');
+    }
+}
+
+async function calculatePointsForMatch(matchId, homeScore, awayScore) {
+    try {
+        // Obtener todas las predicciones para este partido
+        const { data: predictions, error: predError } = await supabase
+            .from('predictions')
+            .select('*')
+            .eq('match_id', matchId);
+
+        if (predError) throw predError;
+
+        // Calcular puntos para cada predicción
+        for (const pred of predictions || []) {
+            const points = calculatePoints(
+                pred.home_prediction,
+                pred.away_prediction,
+                homeScore,
+                awayScore
+            );
+
+            // Actualizar puntos en la predicción
+            await supabase
+                .from('predictions')
+                .update({ points: points })
+                .eq('id', pred.id);
+        }
+
+        // Recalcular puntos totales de cada usuario
+        await recalculateAllUserPoints();
+    } catch (error) {
+        console.error('Error calculando puntos:', error);
+    }
+}
+
+async function recalculateAllUserPoints() {
+    try {
+        // Obtener todos los usuarios
+        const { data: users, error: userError } = await supabase
+            .from('users')
+            .select('id');
+
+        if (userError) throw userError;
+
+        // Para cada usuario, sumar sus puntos
+        for (const user of users || []) {
+            const { data: predictions } = await supabase
+                .from('predictions')
+                .select('points')
+                .eq('user_id', user.id)
+                .not('points', 'is', null);
+
+            const totalPoints = predictions?.reduce((sum, p) => sum + (p.points || 0), 0) || 0;
+
+            await supabase
+                .from('users')
+                .update({ total_points: totalPoints })
+                .eq('id', user.id);
+        }
+    } catch (error) {
+        console.error('Error recalculando puntos:', error);
+    }
+}
+
+async function loadUsersList() {
+    const container = document.getElementById('users-list');
+    if (!container) return;
+
+    try {
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            container.innerHTML = '<p>No hay usuarios registrados.</p>';
+            return;
+        }
+
+        container.innerHTML = data.map(user => `
+            <div class="user-item">
+                <div class="user-info">
+                    <div class="user-avatar">${getInitials(user.name)}</div>
+                    <div class="user-details">
+                        <h4>${user.name}</h4>
+                        <p>${user.email}</p>
+                    </div>
+                </div>
+                <span class="user-badge ${user.is_admin ? 'admin' : 'user'}">
+                    ${user.is_admin ? 'Admin' : 'Usuario'}
+                </span>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error cargando usuarios:', error);
+    }
+}
+
+async function setActiveJornada(event) {
+    event.preventDefault();
+    
+    const jornada = document.getElementById('active-jornada').value;
+
+    try {
+        const { error } = await supabase
+            .from('config')
+            .upsert({
+                key: 'active_jornada',
+                value: jornada
+            }, { onConflict: 'key' });
+
+        if (error) throw error;
+
+        activeJornada = parseInt(jornada);
+        showNotification(`Jornada ${jornada} establecida como activa`, 'success');
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Error al establecer la jornada', 'error');
+    }
+}
+
+// ========================================
+// UTILIDADES
+// ========================================
+function showNotification(message, type = 'info') {
+    const notification = document.getElementById('notification');
+    const messageEl = document.getElementById('notification-message');
+    
+    messageEl.textContent = message;
+    notification.className = `notification show ${type}`;
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+    }, 3000);
+}
+
+function formatDate(date) {
+    const options = { 
+        weekday: 'short', 
+        day: 'numeric', 
+        month: 'short',
+        hour: '2-digit', 
+        minute: '2-digit' 
+    };
+    return date.toLocaleDateString('es-ES', options);
+}
+
+// ========================================
+// PERFIL DE USUARIO
+// ========================================
+let userAvatarUrl = null;
+
+function showProfileModal() {
+    closeModals();
+    loadProfileData();
+    document.getElementById('profile-modal').classList.add('active');
+}
+
+async function loadProfileData() {
+    if (!currentUser) return;
+
+    try {
+        // Obtener datos del usuario (sin avatar_url por si no existe)
+        let { data: userData, error } = await supabase
+            .from('users')
+            .select('id, name, email, is_admin, total_points')
+            .eq('id', currentUser.id)
+            .single();
+
+        // Si falla por avatar_url, intentar sin ella
+        if (error && error.message.includes('avatar_url')) {
+            const retry = await supabase
+                .from('users')
+                .select('id, name, email, is_admin, total_points')
+                .eq('id', currentUser.id)
+                .single();
+            userData = retry.data;
+            error = retry.error;
+        }
+
+        if (error) throw error;
+
+        // Llenar formulario
+        document.getElementById('profile-name').value = userData?.name || '';
+        document.getElementById('profile-email').value = currentUser.email || '';
+        document.getElementById('profile-points').textContent = userData?.total_points || 0;
+
+        // Cargar avatar (avatar_url puede no existir en la tabla)
+        const initials = getInitials(userData?.name);
+        document.getElementById('avatar-initials').textContent = initials;
+        
+        const avatarUrl = userData?.avatar_url || null;
+        if (avatarUrl) {
+            userAvatarUrl = avatarUrl;
+            document.getElementById('avatar-image').src = avatarUrl;
+            document.getElementById('avatar-image').style.display = 'block';
+            document.getElementById('avatar-initials').style.display = 'none';
+            document.getElementById('remove-avatar-btn').style.display = 'inline-flex';
+        } else {
+            document.getElementById('avatar-image').style.display = 'none';
+            document.getElementById('avatar-initials').style.display = 'flex';
+            document.getElementById('remove-avatar-btn').style.display = 'none';
+        }
+
+        // Contar ligas
+        const { data: ligas } = await supabase
+            .from('liga_members')
+            .select('id')
+            .eq('user_id', currentUser.id);
+        
+        document.getElementById('profile-ligas').textContent = ligas?.length || 0;
+
+    } catch (error) {
+        console.error('Error cargando perfil:', error);
+    }
+}
+
+function previewAvatar(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validar tamaño (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+        showNotification('La imagen no puede superar 2MB', 'error');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('avatar-image').src = e.target.result;
+        document.getElementById('avatar-image').style.display = 'block';
+        document.getElementById('avatar-initials').style.display = 'none';
+        document.getElementById('remove-avatar-btn').style.display = 'inline-flex';
+    };
+    reader.readAsDataURL(file);
+}
+
+function removeAvatar() {
+    document.getElementById('avatar-input').value = '';
+    document.getElementById('avatar-image').src = '';
+    document.getElementById('avatar-image').style.display = 'none';
+    document.getElementById('avatar-initials').style.display = 'flex';
+    document.getElementById('remove-avatar-btn').style.display = 'none';
+    userAvatarUrl = null;
+}
+
+async function saveProfile(event) {
+    event.preventDefault();
+    
+    if (!currentUser) return;
+
+    const name = document.getElementById('profile-name').value.trim();
+    const avatarInput = document.getElementById('avatar-input');
+    
+    if (!name) {
+        showNotification('El nombre es obligatorio', 'error');
+        return;
+    }
+
+    try {
+        let avatarUrl = userAvatarUrl;
+
+        // Subir nueva imagen si hay una seleccionada
+        if (avatarInput.files[0]) {
+            const file = avatarInput.files[0];
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`;
+
+            // Subir a Supabase Storage
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(fileName, file, { upsert: true });
+
+            if (uploadError) {
+                console.error('Error subiendo avatar:', uploadError);
+                // Continuar sin avatar si falla
+            } else {
+                // Obtener URL pública
+                const { data: urlData } = supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(fileName);
+                avatarUrl = urlData.publicUrl;
+            }
+        }
+
+        // Actualizar usuario en la base de datos
+        const updateData = { name: name };
+        if (avatarUrl) {
+            updateData.avatar_url = avatarUrl;
+        }
+        
+        let { error } = await supabase
+            .from('users')
+            .update(updateData)
+            .eq('id', currentUser.id);
+
+        // Si falla por avatar_url, intentar solo con name
+        if (error && error.message.includes('avatar_url')) {
+            console.log('⚠️ Columna avatar_url no existe, actualizando solo nombre');
+            const retry = await supabase
+                .from('users')
+                .update({ name: name })
+                .eq('id', currentUser.id);
+            error = retry.error;
+        }
+
+        if (error) throw error;
+
+        // Actualizar UI
+        document.getElementById('user-name').textContent = name;
+        updateNavAvatar(name, avatarUrl);
+        
+        // Recargar datos del perfil para actualizar estadísticas
+        await loadProfileData();
+        
+        showNotification('Perfil actualizado correctamente', 'success');
+
+    } catch (error) {
+        console.error('Error guardando perfil:', error);
+        showNotification('Error al guardar el perfil', 'error');
+    }
+}
+
+async function joinLigaFromProfile(event) {
+    event.preventDefault();
+    
+    if (!currentUser) {
+        showNotification('Debes iniciar sesión', 'error');
+        return;
+    }
+
+    const code = document.getElementById('profile-liga-code').value.toUpperCase().trim();
+    
+    if (!code) {
+        showNotification('Introduce un código de liga', 'error');
+        return;
+    }
+
+    try {
+        // Buscar liga por código
+        const { data: liga, error: ligaError } = await supabase
+            .from('ligas')
+            .select('id, name')
+            .eq('code', code)
+            .single();
+
+        if (ligaError || !liga) {
+            showNotification('Código de liga no válido', 'error');
+            return;
+        }
+
+        // Verificar si ya es miembro
+        const { data: existing } = await supabase
+            .from('liga_members')
+            .select('id')
+            .eq('liga_id', liga.id)
+            .eq('user_id', currentUser.id)
+            .single();
+
+        if (existing) {
+            showNotification('Ya eres miembro de esta liga', 'warning');
+            document.getElementById('profile-liga-code').value = '';
+            return;
+        }
+
+        // Unirse a la liga
+        const { error: joinError } = await supabase
+            .from('liga_members')
+            .insert({
+                liga_id: liga.id,
+                user_id: currentUser.id
+            });
+
+        if (joinError) throw joinError;
+
+        showNotification(`¡Te has unido a la liga "${liga.name}"!`, 'success');
+        document.getElementById('profile-liga-code').value = '';
+        
+        // Recargar datos del perfil para actualizar número de ligas
+        await loadProfileData();
+        
+        // Recargar sección de ligas si está abierta
+        if (document.getElementById('ligas-section').classList.contains('active')) {
+            loadUserLigas();
+        }
+    } catch (error) {
+        console.error('Error uniéndose a liga:', error);
+        showNotification('Error al unirse a la liga', 'error');
+    }
+}
+
+function updateNavAvatar(name, avatarUrl) {
+    const initials = getInitials(name);
+    document.getElementById('nav-avatar-initials').textContent = initials;
+    
+    if (avatarUrl) {
+        document.getElementById('nav-avatar-image').src = avatarUrl;
+        document.getElementById('nav-avatar-image').style.display = 'block';
+        document.getElementById('nav-avatar-initials').style.display = 'none';
+    } else {
+        document.getElementById('nav-avatar-image').style.display = 'none';
+        document.getElementById('nav-avatar-initials').style.display = 'flex';
+    }
+}
+
+function getInitials(name) {
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+}
+
+function generateLigaCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        showNotification('Código copiado al portapapeles', 'success');
+    });
+}
+
+function shareOnFacebook(code) {
+    const url = encodeURIComponent(window.location.href);
+    const text = encodeURIComponent(`¡Únete a mi liga de SuperLiga! Código: ${code}`);
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`, '_blank');
+}
+
+function shareOnTwitter(code) {
+    const text = encodeURIComponent(`¡Únete a mi liga de SuperLiga! Código: ${code}`);
+    window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+}
+
+function shareOnWhatsapp(code) {
+    const text = encodeURIComponent(`¡Únete a mi liga de SuperLiga! Código: ${code} - ${window.location.href}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+}
+

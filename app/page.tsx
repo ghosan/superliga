@@ -1,0 +1,783 @@
+'use client'
+
+import Script from 'next/script'
+import { useEffect } from 'react'
+
+export default function Home() {
+  useEffect(() => {
+    // Asegurar que las funciones globales están disponibles en window
+    if (typeof window !== 'undefined') {
+      // Las funciones se cargarán desde los scripts externos
+    }
+  }, [])
+
+  return (
+    <>
+      {/* Página de Inicio / Login */}
+      <div id="landing-page" className="page active">
+        <div className="hero-section">
+          <div className="hero-content">
+            <div className="logo-container">
+              <i className="fas fa-futbol logo-icon"></i>
+              <h1>SuperLiga</h1>
+            </div>
+            <p className="tagline">Porra LaLiga 2025-2026</p>
+            <p className="description">Pronostica los resultados de todos los partidos y compite con tus amigos</p>
+            
+            <div className="auth-buttons">
+              <button className="btn btn-white" onClick={() => {
+                if (typeof window !== 'undefined' && (window as any).showLoginModal) {
+                  (window as any).showLoginModal()
+                }
+              }}>
+                <i className="fas fa-sign-in-alt"></i> Iniciar Sesión
+              </button>
+              <button className="btn btn-ghost" onClick={() => {
+                if (typeof window !== 'undefined' && (window as any).showRegisterModal) {
+                  (window as any).showRegisterModal()
+                }
+              }}>
+                <i className="fas fa-user-plus"></i> Registrarse
+              </button>
+            </div>
+
+            <div className="features">
+              <div className="feature">
+                <i className="fas fa-trophy"></i>
+                <h3>Compite</h3>
+                <p>Demuestra que eres el mejor pronosticador</p>
+              </div>
+              <div className="feature">
+                <i className="fas fa-users"></i>
+                <h3>Crea Ligas</h3>
+                <p>Invita a amigos y familiares</p>
+              </div>
+              <div className="feature">
+                <i className="fas fa-chart-line"></i>
+                <h3>Puntuaciones</h3>
+                <p>Hasta 90 puntos por partido</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal de Login */}
+      <div id="login-modal" className="modal">
+        <div className="modal-content">
+          <span className="close-modal" onClick={() => {
+            if (typeof window !== 'undefined' && (window as any).closeModals) {
+              (window as any).closeModals()
+            }
+          }}>&times;</span>
+          <h2><i className="fas fa-sign-in-alt"></i> Iniciar Sesión</h2>
+          <form id="login-form" onSubmit={(e) => {
+            e.preventDefault()
+            if (typeof window !== 'undefined' && (window as any).handleLogin) {
+              (window as any).handleLogin(e)
+            }
+          }}>
+            <div className="form-group">
+              <label htmlFor="login-email">Email</label>
+              <input type="email" id="login-email" required placeholder="tu@email.com" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="login-password">Contraseña</label>
+              <input type="password" id="login-password" required placeholder="Tu contraseña" />
+            </div>
+            <button type="submit" className="btn btn-primary btn-full">Entrar</button>
+          </form>
+          <p className="modal-link">¿No tienes cuenta? <a href="#" onClick={(e) => {
+            e.preventDefault()
+            if (typeof window !== 'undefined' && (window as any).showRegisterModal) {
+              (window as any).showRegisterModal()
+            }
+          }}>Regístrate</a></p>
+        </div>
+      </div>
+
+      {/* Modal de Registro */}
+      <div id="register-modal" className="modal">
+        <div className="modal-content">
+          <span className="close-modal" onClick={() => {
+            if (typeof window !== 'undefined' && (window as any).closeModals) {
+              (window as any).closeModals()
+            }
+          }}>&times;</span>
+          <h2><i className="fas fa-user-plus"></i> Registrarse</h2>
+          <form id="register-form" onSubmit={(e) => {
+            e.preventDefault()
+            if (typeof window !== 'undefined' && (window as any).handleRegister) {
+              (window as any).handleRegister(e)
+            }
+          }}>
+            <div className="form-group">
+              <label htmlFor="register-liga-code"><i className="fas fa-key"></i> Código de Liga (opcional)</label>
+              <input type="text" id="register-liga-code" placeholder="Ej: ABC123" maxLength={10} style={{textTransform: 'uppercase'}} />
+              <small className="field-hint">Si tienes un código de liga, introdúcelo. Si no, podrás unirte después desde tu perfil.</small>
+            </div>
+            <div className="form-group">
+              <label htmlFor="register-name">Nombre completo</label>
+              <input type="text" id="register-name" required placeholder="Tu nombre" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="register-email">Email</label>
+              <input type="email" id="register-email" required placeholder="tu@email.com" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="register-password">Contraseña</label>
+              <input type="password" id="register-password" required minLength={6} placeholder="Mínimo 6 caracteres" />
+            </div>
+            <div className="form-group checkbox-group">
+              <input type="checkbox" id="accept-rules" required />
+              <label htmlFor="accept-rules">Acepto las <a href="#" onClick={(e) => {
+                e.preventDefault()
+                if (typeof window !== 'undefined' && (window as any).showRulesModal) {
+                  (window as any).showRulesModal()
+                }
+              }}>reglas del juego</a></label>
+            </div>
+            <button type="submit" className="btn btn-primary btn-full">Crear cuenta</button>
+          </form>
+          <p className="modal-link">¿Ya tienes cuenta? <a href="#" onClick={(e) => {
+            e.preventDefault()
+            if (typeof window !== 'undefined' && (window as any).showLoginModal) {
+              (window as any).showLoginModal()
+            }
+          }}>Inicia sesión</a></p>
+          <p className="modal-link">¿Quieres crear una liga? <a href="#" onClick={(e) => {
+            e.preventDefault()
+            if (typeof window !== 'undefined' && (window as any).showCreateFirstLigaModal) {
+              (window as any).showCreateFirstLigaModal()
+            }
+          }}>Crear liga</a></p>
+        </div>
+      </div>
+      
+      {/* Modal Crear Primera Liga (para admins) */}
+      <div id="create-first-liga-modal" className="modal">
+        <div className="modal-content">
+          <span className="close-modal" onClick={() => {
+            if (typeof window !== 'undefined' && (window as any).closeModals) {
+              (window as any).closeModals()
+            }
+          }}>&times;</span>
+          <h2><i className="fas fa-plus-circle"></i> Crear Nueva Liga</h2>
+          <p className="modal-info">Crea una liga y obtén un código para invitar a tus amigos.</p>
+          <form id="create-first-liga-form" onSubmit={(e) => {
+            e.preventDefault()
+            if (typeof window !== 'undefined' && (window as any).handleCreateFirstLiga) {
+              (window as any).handleCreateFirstLiga(e)
+            }
+          }}>
+            <div className="form-group">
+              <label htmlFor="first-liga-name">Nombre de la Liga</label>
+              <input type="text" id="first-liga-name" required placeholder="Ej: Liga de Amigos" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="first-liga-description">Descripción (opcional)</label>
+              <textarea id="first-liga-description" placeholder="Descripción de tu liga..."></textarea>
+            </div>
+            <hr style={{margin: '15px 0', border: 'none', borderTop: '1px solid #ddd'}} />
+            <p className="modal-info"><strong>Tus datos de administrador:</strong></p>
+            <div className="form-group">
+              <label htmlFor="admin-name">Tu nombre</label>
+              <input type="text" id="admin-name" required placeholder="Tu nombre" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="admin-email">Tu email</label>
+              <input type="email" id="admin-email" required placeholder="tu@email.com" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="admin-password">Contraseña</label>
+              <input type="password" id="admin-password" required minLength={6} placeholder="Mínimo 6 caracteres" />
+            </div>
+            <div className="form-group checkbox-group">
+              <input type="checkbox" id="accept-rules-admin" required />
+              <label htmlFor="accept-rules-admin">Acepto las <a href="#" onClick={(e) => {
+                e.preventDefault()
+                if (typeof window !== 'undefined' && (window as any).showRulesModal) {
+                  (window as any).showRulesModal()
+                }
+              }}>reglas del juego</a></label>
+            </div>
+            <button type="submit" className="btn btn-primary btn-full">Crear Liga y Cuenta</button>
+          </form>
+          <p className="modal-link">¿Ya tienes código? <a href="#" onClick={(e) => {
+            e.preventDefault()
+            if (typeof window !== 'undefined' && (window as any).showRegisterModal) {
+              (window as any).showRegisterModal()
+            }
+          }}>Registrarse</a></p>
+        </div>
+      </div>
+
+      {/* Modal de Reglas */}
+      <div id="rules-modal" className="modal">
+        <div className="modal-content modal-large">
+          <span className="close-modal" onClick={() => {
+            if (typeof window !== 'undefined' && (window as any).closeModals) {
+              (window as any).closeModals()
+            }
+          }}>&times;</span>
+          <h2><i className="fas fa-book"></i> Reglas del Juego</h2>
+          <div className="rules-content">
+            <h3>El Juego</h3>
+            <p>Con SuperLiga podrás pronosticar el resultado de todos los partidos de LaLiga 2025-2026. Puedes crear o unirte a ligas para competir con amigos, familiares o compañeros de trabajo.</p>
+            
+            <h3>Cómo Jugar</h3>
+            <p>Al crear una cuenta, participas automáticamente en el juego. Podrás hacer cambios en tus pronósticos hasta que comience cada partido.</p>
+            
+            <h3>Sistema de Puntuación</h3>
+            <p>El resultado considerado es el marcador al final de los 90 minutos (prórroga y penaltis no cuentan).</p>
+            <ul>
+              <li><strong>Acertar 1X2:</strong> 48 puntos</li>
+              <li><strong>Goles local exactos:</strong> 15 puntos</li>
+              <li><strong>Goles visitante exactos:</strong> 15 puntos</li>
+              <li><strong>Diferencia de goles:</strong> 12 puntos</li>
+              <li><strong>Máximo por partido:</strong> 90 puntos</li>
+            </ul>
+            
+            <h3>Clasificaciones</h3>
+            <p>Compites individualmente contra todos los miembros de tu liga. Para competir en la clasificación de liga, esta debe tener al menos 3 miembros.</p>
+            
+            <h3>Máximo de Puntos por Temporada</h3>
+            <p>380 partidos × 90 puntos = <strong>34.200 puntos</strong></p>
+          </div>
+        </div>
+      </div>
+
+      {/* Dashboard Principal (después de login) */}
+      <div id="dashboard-page" className="page">
+        {/* Navegación */}
+        <nav className="main-nav">
+          <div className="nav-brand">
+            <i className="fas fa-futbol"></i>
+            <span>SuperLiga</span>
+          </div>
+          <div className="nav-progress">
+            <span id="progress-percentage">0%</span>
+            <span className="progress-label">Pronósticos</span>
+          </div>
+          <div className="nav-links">
+            <a href="#" className="nav-link active" data-page="dashboard">
+              <i className="fas fa-home"></i> Dashboard
+            </a>
+            <a href="#" className="nav-link" data-page="pronosticos">
+              <i className="fas fa-edit"></i> Mis Pronósticos
+            </a>
+            <a href="#" className="nav-link" data-page="clasificaciones">
+              <i className="fas fa-medal"></i> Clasificaciones
+            </a>
+            <a href="#" className="nav-link" data-page="ligas">
+              <i className="fas fa-users"></i> Mis Ligas
+            </a>
+            <a href="#" className="nav-link admin-link" data-page="admin" id="admin-nav-link" style={{display: 'none'}}>
+              <i className="fas fa-cog"></i> Admin
+            </a>
+          </div>
+          <div className="nav-user">
+            <button className="user-profile-btn" onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).showProfileModal) {
+                (window as any).showProfileModal()
+              }
+            }}>
+              <div className="user-avatar-small" id="nav-avatar">
+                <span id="nav-avatar-initials">US</span>
+                <img id="nav-avatar-image" src="" alt="" style={{display: 'none'}} />
+              </div>
+              <span id="user-name">Usuario</span>
+            </button>
+            <button className="btn btn-small" onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).handleLogout) {
+                (window as any).handleLogout()
+              }
+            }} title="Cerrar sesión">
+              <i className="fas fa-sign-out-alt"></i>
+            </button>
+          </div>
+        </nav>
+
+        {/* Contenido del Dashboard */}
+        <main className="dashboard-content">
+          {/* Sección Dashboard Principal */}
+          <section id="dashboard-section" className="section active">
+            <div className="dashboard-welcome">
+              <h1>¡Bienvenido, <span id="dashboard-user-name">Usuario</span>!</h1>
+              <p className="dashboard-subtitle">Selecciona una liga para ver su clasificación</p>
+            </div>
+
+            {/* Tarjetas de Ligas */}
+            <div id="dashboard-ligas-grid" className="dashboard-ligas-grid">
+              {/* Se cargan dinámicamente */}
+            </div>
+
+            {/* Vista de Clasificación (se muestra al hacer clic en una tarjeta) */}
+            <div id="dashboard-liga-detail" className="dashboard-liga-detail" style={{display: 'none'}}>
+              <div className="dashboard-detail-header">
+                <button className="btn btn-secondary btn-small" onClick={() => {
+                  if (typeof window !== 'undefined' && (window as any).closeDashboardDetail) {
+                    (window as any).closeDashboardDetail()
+                  }
+                }}>
+                  <i className="fas fa-arrow-left"></i> Volver
+                </button>
+                <h2 id="dashboard-detail-title">Clasificación</h2>
+              </div>
+              <div id="dashboard-detail-content" className="dashboard-detail-content">
+                {/* Se carga dinámicamente */}
+              </div>
+            </div>
+          </section>
+
+          {/* Sección Mis Pronósticos */}
+          <section id="pronosticos-section" className="section">
+            <div className="section-header">
+              <h2><i className="fas fa-edit"></i> Mis Pronósticos</h2>
+              <div className="pronosticos-selectors">
+                <div className="liga-selector-pronosticos">
+                  <label htmlFor="pronosticos-liga-select">
+                    <i className="fas fa-users"></i> Liga:
+                  </label>
+                  <select id="pronosticos-liga-select" onChange={() => {
+                    if (typeof window !== 'undefined' && (window as any).loadMatches) {
+                      (window as any).loadMatches()
+                    }
+                  }}>
+                    <option value="">Selecciona una liga</option>
+                    {/* Se cargan dinámicamente */}
+                  </select>
+                </div>
+                <div className="jornada-selector">
+                  <button className="btn btn-small" onClick={() => {
+                    if (typeof window !== 'undefined' && (window as any).changeJornada) {
+                      (window as any).changeJornada(-1)
+                    }
+                  }}>
+                    <i className="fas fa-chevron-left"></i>
+                  </button>
+                  <span id="current-jornada">Jornada 1</span>
+                  <button className="btn btn-small" onClick={() => {
+                    if (typeof window !== 'undefined' && (window as any).changeJornada) {
+                      (window as any).changeJornada(1)
+                    }
+                  }}>
+                    <i className="fas fa-chevron-right"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="matches-container" id="matches-container">
+              {/* Los partidos se cargan dinámicamente */}
+              <div className="loading">
+                <i className="fas fa-spinner fa-spin"></i>
+                <p>Cargando partidos...</p>
+              </div>
+            </div>
+            
+            <div className="save-predictions">
+              <button className="btn btn-primary btn-large" onClick={() => {
+                if (typeof window !== 'undefined' && (window as any).savePredictions) {
+                  (window as any).savePredictions()
+                }
+              }}>
+                Guardar todos los pronósticos
+              </button>
+              <a href="#" className="reset-link" onClick={(e) => {
+                e.preventDefault()
+                if (typeof window !== 'undefined' && (window as any).resetPredictions) {
+                  (window as any).resetPredictions()
+                }
+              }}>Comenzar de nuevo</a>
+            </div>
+          </section>
+
+          {/* Sección Clasificaciones */}
+          <section id="clasificaciones-section" className="section">
+            <div className="section-header">
+              <h2><i className="fas fa-medal"></i> Clasificaciones</h2>
+              <div className="classification-tabs">
+                <button className="tab-btn active" data-tab="individual">Individual</button>
+                <button className="tab-btn" data-tab="liga">Por Liga</button>
+              </div>
+            </div>
+            
+            <div className="classification-content">
+              <div id="individual-tab" className="tab-content active">
+                <div className="leaderboard" id="individual-leaderboard">
+                  {/* Se carga dinámicamente */}
+                </div>
+              </div>
+              <div id="liga-tab" className="tab-content">
+                <div className="liga-selector">
+                  <select id="liga-select" onChange={() => {
+                    if (typeof window !== 'undefined' && (window as any).loadLigaClassification) {
+                      (window as any).loadLigaClassification()
+                    }
+                  }}>
+                    <option value="">Selecciona una liga</option>
+                  </select>
+                </div>
+                <div className="leaderboard" id="liga-leaderboard">
+                  {/* Se carga dinámicamente */}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Sección Mis Ligas */}
+          <section id="ligas-section" className="section">
+            <div className="section-header">
+              <h2><i className="fas fa-users"></i> Mis Ligas</h2>
+              <div className="liga-actions">
+                <button className="btn btn-primary" onClick={() => {
+                  if (typeof window !== 'undefined' && (window as any).showCreateLigaModal) {
+                    (window as any).showCreateLigaModal()
+                  }
+                }}>
+                  <i className="fas fa-plus"></i> Crear Liga
+                </button>
+                <button className="btn btn-secondary" onClick={() => {
+                  if (typeof window !== 'undefined' && (window as any).showJoinLigaModal) {
+                    (window as any).showJoinLigaModal()
+                  }
+                }}>
+                  <i className="fas fa-sign-in-alt"></i> Unirse a Liga
+                </button>
+              </div>
+            </div>
+            
+            <div className="ligas-container" id="ligas-container">
+              {/* Las ligas se cargan dinámicamente */}
+            </div>
+          </section>
+
+          {/* Sección Admin */}
+          <section id="admin-section" className="section">
+            <div className="section-header">
+              <h2><i className="fas fa-cog"></i> Panel de Administración</h2>
+            </div>
+            
+            <div className="admin-tabs">
+              <button className="admin-tab-btn active" data-admin-tab="partidos">Gestionar Partidos</button>
+              <button className="admin-tab-btn" data-admin-tab="resultados">Introducir Resultados</button>
+              <button className="admin-tab-btn" data-admin-tab="usuarios">Usuarios</button>
+              <button className="admin-tab-btn" data-admin-tab="jornadas">Jornadas</button>
+            </div>
+
+            {/* Gestionar Partidos */}
+            <div id="partidos-admin-tab" className="admin-tab-content active">
+              {/* IMPORTAR DESDE EXCEL */}
+              <div className="admin-card">
+                <h3><i className="fas fa-file-excel"></i> Importar desde Excel</h3>
+                <p className="help-text">Copia las filas de tu Excel y pégalas aquí. El formato debe ser:</p>
+                <div className="excel-format-example">
+                  <code>Jornada | Fecha (DD/MM/AAAA) | Hora (HH:MM) | Equipo Local | Equipo Visitante</code>
+                </div>
+                <div className="form-group">
+                  <label>Pegar datos de Excel:</label>
+                  <textarea id="excel-data" rows={8} placeholder={`Ejemplo:
+1	15/08/2025	21:00	Real Madrid	FC Barcelona
+1	16/08/2025	18:30	Atlético de Madrid	Sevilla FC
+1	16/08/2025	21:00	Valencia CF	Villarreal CF`}></textarea>
+                </div>
+                <div className="excel-actions">
+                  <button className="btn btn-primary" onClick={() => {
+                    if (typeof window !== 'undefined' && (window as any).importFromExcel) {
+                      (window as any).importFromExcel()
+                    }
+                  }}>
+                    <i className="fas fa-upload"></i> Importar Partidos
+                  </button>
+                  <button className="btn btn-secondary" onClick={() => {
+                    if (typeof window !== 'undefined' && (window as any).clearExcelData) {
+                      (window as any).clearExcelData()
+                    }
+                  }}>
+                    <i className="fas fa-trash"></i> Limpiar
+                  </button>
+                </div>
+                <div id="import-preview" className="import-preview"></div>
+              </div>
+
+              {/* AÑADIR PARTIDO INDIVIDUAL */}
+              <div className="admin-card">
+                <h3><i className="fas fa-plus-circle"></i> Añadir Partido Individual</h3>
+                <form id="add-match-form" onSubmit={(e) => {
+                  e.preventDefault()
+                  if (typeof window !== 'undefined' && (window as any).addMatch) {
+                    (window as any).addMatch(e)
+                  }
+                }}>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Jornada</label>
+                      <input type="number" id="match-jornada" min={1} max={38} required />
+                    </div>
+                    <div className="form-group">
+                      <label>Fecha y Hora</label>
+                      <input type="datetime-local" id="match-datetime" required />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Equipo Local</label>
+                      <select id="match-home" required>
+                        <option value="">Seleccionar...</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Equipo Visitante</label>
+                      <select id="match-away" required>
+                        <option value="">Seleccionar...</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button type="submit" className="btn btn-primary">
+                    <i className="fas fa-plus"></i> Añadir Partido
+                  </button>
+                </form>
+              </div>
+              
+              <div className="admin-card">
+                <h3><i className="fas fa-list"></i> Partidos por Jornada</h3>
+                <div className="admin-jornada-selector">
+                  <select id="admin-jornada-select" onChange={() => {
+                    if (typeof window !== 'undefined' && (window as any).loadAdminMatches) {
+                      (window as any).loadAdminMatches()
+                    }
+                  }}>
+                    {/* Opciones cargadas dinámicamente */}
+                  </select>
+                </div>
+                <div id="admin-matches-list" className="admin-matches-list">
+                  {/* Lista de partidos */}
+                </div>
+              </div>
+            </div>
+
+            {/* Introducir Resultados */}
+            <div id="resultados-admin-tab" className="admin-tab-content">
+              <div className="admin-card">
+                <h3><i className="fas fa-futbol"></i> Introducir Resultados</h3>
+                <div className="admin-jornada-selector">
+                  <select id="results-jornada-select" onChange={() => {
+                    if (typeof window !== 'undefined' && (window as any).loadMatchesForResults) {
+                      (window as any).loadMatchesForResults()
+                    }
+                  }}>
+                    {/* Opciones cargadas dinámicamente */}
+                  </select>
+                </div>
+                <div id="results-matches-list" className="results-matches-list">
+                  {/* Lista de partidos para introducir resultados */}
+                </div>
+              </div>
+            </div>
+
+            {/* Usuarios */}
+            <div id="usuarios-admin-tab" className="admin-tab-content">
+              <div className="admin-card">
+                <h3><i className="fas fa-users"></i> Lista de Usuarios</h3>
+                <div id="users-list" className="users-list">
+                  {/* Lista de usuarios */}
+                </div>
+              </div>
+            </div>
+
+            {/* Jornadas */}
+            <div id="jornadas-admin-tab" className="admin-tab-content">
+              <div className="admin-card">
+                <h3><i className="fas fa-calendar"></i> Gestionar Jornadas</h3>
+                <form id="set-active-jornada-form" onSubmit={(e) => {
+                  e.preventDefault()
+                  if (typeof window !== 'undefined' && (window as any).setActiveJornada) {
+                    (window as any).setActiveJornada(e)
+                  }
+                }}>
+                  <div className="form-group">
+                    <label>Jornada Activa</label>
+                    <input type="number" id="active-jornada" min={1} max={38} required />
+                  </div>
+                  <button type="submit" className="btn btn-primary">
+                    <i className="fas fa-check"></i> Establecer como Activa
+                  </button>
+                </form>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      {/* Modal Crear Liga */}
+      <div id="create-liga-modal" className="modal">
+        <div className="modal-content">
+          <span className="close-modal" onClick={() => {
+            if (typeof window !== 'undefined' && (window as any).closeModals) {
+              (window as any).closeModals()
+            }
+          }}>&times;</span>
+          <h2><i className="fas fa-plus-circle"></i> Crear Nueva Liga</h2>
+          <form id="create-liga-form" onSubmit={(e) => {
+            e.preventDefault()
+            if (typeof window !== 'undefined' && (window as any).createLiga) {
+              (window as any).createLiga(e)
+            }
+          }}>
+            <div className="form-group">
+              <label htmlFor="liga-name">Nombre de la Liga</label>
+              <input type="text" id="liga-name" required placeholder="Mi Liga de Amigos" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="liga-description">Descripción (opcional)</label>
+              <textarea id="liga-description" placeholder="Descripción de tu liga..."></textarea>
+            </div>
+            <button type="submit" className="btn btn-primary btn-full">Crear Liga</button>
+          </form>
+        </div>
+      </div>
+
+      {/* Modal Unirse a Liga */}
+      <div id="join-liga-modal" className="modal">
+        <div className="modal-content">
+          <span className="close-modal" onClick={() => {
+            if (typeof window !== 'undefined' && (window as any).closeModals) {
+              (window as any).closeModals()
+            }
+          }}>&times;</span>
+          <h2><i className="fas fa-sign-in-alt"></i> Unirse a Liga</h2>
+          <form id="join-liga-form" onSubmit={(e) => {
+            e.preventDefault()
+            if (typeof window !== 'undefined' && (window as any).joinLiga) {
+              (window as any).joinLiga(e)
+            }
+          }}>
+            <div className="form-group">
+              <label htmlFor="liga-code">Código de la Liga</label>
+              <input type="text" id="liga-code" required placeholder="Introduce el código" />
+            </div>
+            <button type="submit" className="btn btn-primary btn-full">Unirse</button>
+          </form>
+        </div>
+      </div>
+
+      {/* Modal Detalle Liga */}
+      <div id="liga-detail-modal" className="modal">
+        <div className="modal-content modal-large">
+          <span className="close-modal" onClick={() => {
+            if (typeof window !== 'undefined' && (window as any).closeModals) {
+              (window as any).closeModals()
+            }
+          }}>&times;</span>
+          <div id="liga-detail-content">
+            {/* Contenido cargado dinámicamente */}
+          </div>
+        </div>
+      </div>
+
+      {/* Modal Perfil de Usuario */}
+      <div id="profile-modal" className="modal">
+        <div className="modal-content">
+          <span className="close-modal" onClick={() => {
+            if (typeof window !== 'undefined' && (window as any).closeModals) {
+              (window as any).closeModals()
+            }
+          }}>&times;</span>
+          <h2><i className="fas fa-user-circle"></i> Mi Perfil</h2>
+          
+          <div className="profile-avatar-section">
+            <div className="profile-avatar-preview" id="avatar-preview">
+              <span id="avatar-initials">US</span>
+              <img id="avatar-image" src="" alt="" style={{display: 'none'}} />
+            </div>
+            <div className="profile-avatar-actions">
+              <input type="file" id="avatar-input" accept="image/*" style={{display: 'none'}} onChange={(e) => {
+                if (typeof window !== 'undefined' && (window as any).previewAvatar) {
+                  (window as any).previewAvatar(e)
+                }
+              }} />
+              <button className="btn btn-secondary btn-small" onClick={() => {
+                const input = document.getElementById('avatar-input')
+                if (input) input.click()
+              }}>
+                <i className="fas fa-camera"></i> Cambiar foto
+              </button>
+              <button className="btn btn-small" onClick={() => {
+                if (typeof window !== 'undefined' && (window as any).removeAvatar) {
+                  (window as any).removeAvatar()
+                }
+              }} id="remove-avatar-btn" style={{display: 'none'}}>
+                <i className="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+          
+          <form id="profile-form" onSubmit={(e) => {
+            e.preventDefault()
+            if (typeof window !== 'undefined' && (window as any).saveProfile) {
+              (window as any).saveProfile(e)
+            }
+          }}>
+            <div className="form-group">
+              <label htmlFor="profile-name">Nombre</label>
+              <input type="text" id="profile-name" required placeholder="Tu nombre" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="profile-email">Email</label>
+              <input type="email" id="profile-email" disabled placeholder="tu@email.com" />
+              <small className="field-hint">El email no se puede cambiar</small>
+            </div>
+            <div className="profile-stats">
+              <div className="stat-item">
+                <span className="stat-value" id="profile-points">0</span>
+                <span className="stat-label">Puntos totales</span>
+              </div>
+              <div className="stat-item">
+                <span className="stat-value" id="profile-ligas">0</span>
+                <span className="stat-label">Ligas</span>
+              </div>
+            </div>
+            <button type="submit" className="btn btn-primary btn-full">
+              <i className="fas fa-save"></i> Guardar cambios
+            </button>
+          </form>
+          
+          <div className="profile-join-liga-section">
+            <hr style={{margin: '24px 0', border: 'none', borderTop: '1px solid var(--slate-200)'}} />
+            <h3 style={{fontSize: '14px', fontWeight: 600, color: 'var(--slate-700)', marginBottom: '12px'}}>
+              <i className="fas fa-users"></i> Unirse a una Liga
+            </h3>
+            <form id="profile-join-liga-form" onSubmit={(e) => {
+              e.preventDefault()
+              if (typeof window !== 'undefined' && (window as any).joinLigaFromProfile) {
+                (window as any).joinLigaFromProfile(e)
+              }
+            }}>
+              <div className="form-group">
+                <label htmlFor="profile-liga-code">Código de Liga</label>
+                <input type="text" id="profile-liga-code" placeholder="Ej: ABC123" maxLength={10} style={{textTransform: 'uppercase'}} />
+                <small className="field-hint">Introduce el código que te proporcionó el creador de la liga</small>
+              </div>
+              <button type="submit" className="btn btn-secondary btn-full">
+                <i className="fas fa-sign-in-alt"></i> Unirse a Liga
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      {/* Notificaciones */}
+      <div id="notification" className="notification">
+        <span id="notification-message"></span>
+      </div>
+
+      {/* Scripts - Cargar en orden: Supabase -> config -> app */}
+      <Script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" strategy="afterInteractive" />
+      <Script src="/config.js" strategy="afterInteractive" />
+      <Script src="/app.js" strategy="afterInteractive" />
+      <Script src="/live-updates.js" strategy="lazyOnload" />
+    </>
+  )
+}
+
