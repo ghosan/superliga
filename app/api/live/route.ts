@@ -100,7 +100,8 @@ export async function GET(request: NextRequest) {
     // Limpiar cache antiguo (opcional, para evitar memoria excesiva)
     if (cache.size > 100) {
       const now = Date.now();
-      for (const [key, value] of cache.entries()) {
+      const entries = Array.from(cache.entries());
+      for (const [key, value] of entries) {
         if (now - value.timestamp > CACHE_DURATION) {
           cache.delete(key);
         }
