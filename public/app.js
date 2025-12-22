@@ -578,30 +578,6 @@ async function loadDashboardLigaCards() {
     container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
 
     try {
-        // Obtener puntos totales del usuario
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('total_points')
-            .eq('id', currentUser.id)
-            .maybeSingle();
-
-        if (userError) {
-            console.warn('⚠️ Error obteniendo puntos del usuario:', userError);
-        }
-
-        const totalPoints = userData?.total_points || 0;
-
-        // Obtener posición global
-        const { data: allUsers } = await supabase
-            .from('users')
-            .select('id, total_points')
-            .order('total_points', { ascending: false });
-
-        let globalPosition = '-';
-        if (allUsers) {
-            globalPosition = allUsers.findIndex(u => u.id === currentUser.id) + 1 || '-';
-        }
-
         // Obtener ligas del usuario
         const { data: userLigas, error } = await supabase
             .from('liga_members')
@@ -612,33 +588,7 @@ async function loadDashboardLigaCards() {
 
         let cardsHTML = '';
 
-        // Tarjeta de Total Global
-        cardsHTML += `
-            <div class="liga-card-dashboard" onclick="showDashboardLigaDetail('all', 'Total Global')">
-                <div class="liga-card-header-dashboard">
-                    <div class="liga-card-icon global">
-                        <i class="fas fa-globe"></i>
-                    </div>
-                    <h3>Total Global</h3>
-                </div>
-                <div class="liga-card-stats">
-                    <div class="liga-stat">
-                        <span class="liga-stat-label">Puntos</span>
-                        <span class="liga-stat-value">${totalPoints}</span>
-                    </div>
-                    <div class="liga-stat">
-                        <span class="liga-stat-label">Posición</span>
-                        <span class="liga-stat-value">${globalPosition}</span>
-                    </div>
-                    <div class="liga-stat">
-                        <span class="liga-stat-label">Jugadores</span>
-                        <span class="liga-stat-value">${allUsers?.length || 0}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // Tarjetas de cada liga
+        // Tarjetas de cada liga (sin mostrar Total Global)
         if (userLigas && userLigas.length > 0) {
             for (const item of userLigas) {
                 if (!item.ligas) continue;
@@ -664,6 +614,9 @@ async function loadDashboardLigaCards() {
 
                 const userPosition = sortedMembers.findIndex(m => m.id === currentUser.id) + 1 || '-';
                 const membersCount = sortedMembers.length;
+                // Obtener puntos del usuario actual en esta liga
+                const currentUserMember = sortedMembers.find(m => m.id === currentUser.id);
+                const userPointsInLiga = currentUserMember?.points || 0;
 
                 cardsHTML += `
                     <div class="liga-card-dashboard" onclick="showDashboardLigaDetail('${ligaId}', '${ligaName}')">
@@ -676,7 +629,7 @@ async function loadDashboardLigaCards() {
                         <div class="liga-card-stats">
                             <div class="liga-stat">
                                 <span class="liga-stat-label">Puntos</span>
-                                <span class="liga-stat-value">${totalPoints}</span>
+                                <span class="liga-stat-value">${userPointsInLiga}</span>
                             </div>
                             <div class="liga-stat">
                                 <span class="liga-stat-label">Posición</span>
