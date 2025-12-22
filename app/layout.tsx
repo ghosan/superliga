@@ -26,11 +26,19 @@ export default function RootLayout({
             __html: `
               (function() {
                 window.__ENV__ = window.__ENV__ || {};
-                window.__ENV__.NEXT_PUBLIC_SUPABASE_URL = ${JSON.stringify(process.env.NEXT_PUBLIC_SUPABASE_URL || '')};
-                window.__ENV__.NEXT_PUBLIC_SUPABASE_ANON_KEY = ${JSON.stringify(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '')};
+                // Leer desde process.env (Next.js) o usar valores por defecto si no están configuradas
+                window.__ENV__.NEXT_PUBLIC_SUPABASE_URL = ${JSON.stringify(
+                  process.env.NEXT_PUBLIC_SUPABASE_URL || 
+                  'https://ujcesimljlifirauhlzn.supabase.co'
+                )};
+                window.__ENV__.NEXT_PUBLIC_SUPABASE_ANON_KEY = ${JSON.stringify(
+                  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
+                  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqY2VzaW1samxpZmlyYXVobHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NzAwOTYsImV4cCI6MjA3MzU0NjA5Nn0.h4iaFXK3ZtXzUIwMIY7GtUswAQR51zyD_sKCR9sRjaQ'
+                )};
                 console.log('📦 Variables de entorno inyectadas:', {
                   hasUrl: !!window.__ENV__.NEXT_PUBLIC_SUPABASE_URL,
-                  hasKey: !!window.__ENV__.NEXT_PUBLIC_SUPABASE_ANON_KEY
+                  hasKey: !!window.__ENV__.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+                  fromEnv: ${JSON.stringify(!!process.env.NEXT_PUBLIC_SUPABASE_URL)}
                 });
               })();
             `,
