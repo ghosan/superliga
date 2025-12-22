@@ -494,6 +494,21 @@ body {
     resize: vertical;
 }
 
+.forgot-password-link {
+    display: block;
+    font-size: 13px;
+    color: var(--slate-600);
+    text-decoration: none;
+    margin-top: 8px;
+    text-align: right;
+    transition: color 0.2s ease;
+}
+
+.forgot-password-link:hover {
+    color: var(--slate-900);
+    text-decoration: underline;
+}
+
 .field-hint {
     display: block;
     font-size: 12px;

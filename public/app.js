@@ -95,6 +95,11 @@ function showRegisterModal() {
     document.getElementById('register-modal').classList.add('active');
 }
 
+function showForgotPasswordModal() {
+    closeModals();
+    document.getElementById('forgot-password-modal').classList.add('active');
+}
+
 function showRulesModal() {
     closeModals();
     document.getElementById('rules-modal').classList.add('active');
@@ -186,6 +191,55 @@ async function handleLogin(event) {
     } catch (error) {
         console.error('Error en login:', error);
         showNotification('Error al iniciar sesión. Intenta de nuevo.', 'error');
+    }
+}
+
+async function handleForgotPassword(event) {
+    event.preventDefault();
+    
+    const emailInput = document.getElementById('forgot-password-email');
+    const email = emailInput?.value?.trim() || '';
+
+    if (!email || email.trim().length === 0) {
+        showNotification('Por favor, ingresa tu email', 'error');
+        return;
+    }
+
+    // Validación básica de email
+    if (!validateEmail(email)) {
+        showNotification('Por favor, ingresa un email válido', 'error');
+        return;
+    }
+
+    try {
+        const supabase = window.supabase || window.supabaseClient;
+        if (!supabase) {
+            showNotification('Error: No se pudo conectar con el servidor', 'error');
+            return;
+        }
+
+        // Enviar email de recuperación
+        const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${window.location.origin}/reset-password`,
+        });
+
+        if (error) {
+            console.error('Error al enviar email de recuperación:', error);
+            showNotification('Error al enviar el email. Verifica que el email sea correcto.', 'error');
+            return;
+        }
+
+        showNotification('¡Email enviado! Revisa tu bandeja de entrada para restablecer tu contraseña.', 'success');
+        
+        // Cerrar modal después de 2 segundos
+        setTimeout(() => {
+            closeModals();
+            showLoginModal();
+        }, 2000);
+
+    } catch (error) {
+        console.error('Error en recuperación de contraseña:', error);
+        showNotification('Error inesperado. Intenta de nuevo más tarde.', 'error');
     }
 }
 
@@ -3349,7 +3403,9 @@ function shareOnWhatsapp(code) {
 if (typeof window !== 'undefined') {
     window.showLoginModal = showLoginModal;
     window.showRegisterModal = showRegisterModal;
+    window.showForgotPasswordModal = showForgotPasswordModal;
     window.showRulesModal = showRulesModal;
+    window.handleForgotPassword = handleForgotPassword;
     window.closeModals = closeModals;
     window.handleLogin = handleLogin;
     window.handleRegister = handleRegister;

@@ -84,6 +84,12 @@ export default function Home() {
             <div className="form-group">
               <label htmlFor="login-password">Contraseña</label>
               <input type="password" id="login-password" required placeholder="Tu contraseña" />
+              <a href="#" className="forgot-password-link" onClick={(e) => {
+                e.preventDefault()
+                if (typeof window !== 'undefined' && (window as any).showForgotPasswordModal) {
+                  (window as any).showForgotPasswordModal()
+                }
+              }}>¿Olvidaste tu contraseña?</a>
             </div>
             <button type="submit" className="btn btn-primary btn-full">Entrar</button>
           </form>
@@ -93,6 +99,41 @@ export default function Home() {
               (window as any).showRegisterModal()
             }
           }}>Regístrate</a></p>
+        </div>
+      </div>
+
+      {/* Modal de Recuperar Contraseña */}
+      <div id="forgot-password-modal" className="modal">
+        <div className="modal-content">
+          <span className="close-modal" onClick={() => {
+            if (typeof window !== 'undefined' && (window as any).closeModals) {
+              (window as any).closeModals()
+            }
+          }}>&times;</span>
+          <h2><i className="fas fa-key"></i> Recuperar Contraseña</h2>
+          <p className="modal-info">Ingresa tu email y te enviaremos un enlace para restablecer tu contraseña.</p>
+          <form id="forgot-password-form" onSubmit={(e) => {
+            e.preventDefault()
+            if (typeof window !== 'undefined' && (window as any).handleForgotPassword) {
+              (window as any).handleForgotPassword(e)
+            }
+          }}>
+            <div className="form-group">
+              <label htmlFor="forgot-password-email">Email</label>
+              <input type="email" id="forgot-password-email" required placeholder="tu@email.com" />
+            </div>
+            <button type="submit" className="btn btn-primary btn-full">
+              <i className="fas fa-paper-plane"></i> Enviar enlace de recuperación
+            </button>
+          </form>
+          <p className="modal-link">
+            <a href="#" onClick={(e) => {
+              e.preventDefault()
+              if (typeof window !== 'undefined' && (window as any).showLoginModal) {
+                (window as any).showLoginModal()
+              }
+            }}>Volver a iniciar sesión</a>
+          </p>
         </div>
       </div>
 
