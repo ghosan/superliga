@@ -72,7 +72,14 @@
 /* Base */
 body {
     font-family: var(--font-family);
-    background-color: var(--slate-50);
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    background-image: 
+        linear-gradient(rgba(15, 23, 42, 0.7), rgba(30, 41, 59, 0.8)),
+        url('/stadium-bg-all.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
     color: var(--slate-800);
     font-size: 14px;
     line-height: 1.5;
@@ -85,6 +92,7 @@ body {
 .page {
     display: none;
     min-height: 100vh;
+    position: relative;
 }
 
 .page.active {
