@@ -767,6 +767,51 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Footer */}
+      <footer className="footer">
+        <div className="footer-container">
+          <div className="footer-section">
+            <div className="footer-brand">
+              <div className="footer-logo">
+                <i className="fas fa-futbol"></i>
+                <span>SuperLiga</span>
+              </div>
+              <p className="footer-copyright">© 2025 SuperLiga. Todos los derechos reservados.</p>
+            </div>
+          </div>
+
+          <div className="footer-section">
+            <h3 className="footer-title">Aplicación</h3>
+            <ul className="footer-links">
+              <li><a href="#" onClick={(e) => e.preventDefault()}>Cómo se juega</a></li>
+              <li><a href="#" onClick={(e) => e.preventDefault()}>Reglas</a></li>
+              <li><a href="#" onClick={(e) => e.preventDefault()}>Puntuación</a></li>
+              <li><a href="#" onClick={(e) => e.preventDefault()}>FAQ</a></li>
+            </ul>
+          </div>
+
+          <div className="footer-section">
+            <h3 className="footer-title">Ligas</h3>
+            <ul className="footer-links">
+              <li><a href="#" onClick={(e) => e.preventDefault()}>Crear Liga</a></li>
+              <li><a href="#" onClick={(e) => e.preventDefault()}>Unirse a Liga</a></li>
+              <li><a href="#" onClick={(e) => e.preventDefault()}>Mis Ligas</a></li>
+              <li><a href="#" onClick={(e) => e.preventDefault()}>Clasificación</a></li>
+            </ul>
+          </div>
+
+          <div className="footer-section">
+            <h3 className="footer-title">Ayuda</h3>
+            <ul className="footer-links">
+              <li><a href="#" onClick={(e) => e.preventDefault()}>Contacto</a></li>
+              <li><a href="#" onClick={(e) => e.preventDefault()}>Soporte</a></li>
+              <li><a href="#" onClick={(e) => e.preventDefault()}>Privacidad</a></li>
+              <li><a href="#" onClick={(e) => e.preventDefault()}>Términos</a></li>
+            </ul>
+          </div>
+        </div>
+      </footer>
+
       {/* Notificaciones */}
       <div id="notification" className="notification">
         <span id="notification-message"></span>
