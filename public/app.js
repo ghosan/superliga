@@ -122,10 +122,11 @@ function validateEmail(email) {
     return emailRegex.test(email.trim()) && email.length <= 255;
 }
 
-// Validar contraseña
+// Validar contraseña (flexible para permitir cualquier longitud razonable)
 function validatePassword(password) {
     if (!password || typeof password !== 'string') return false;
-    return password.length >= 6 && password.length <= 128;
+    // Permitir cualquier contraseña no vacía (Supabase tiene sus propias validaciones)
+    return password.length > 0 && password.length <= 256;
 }
 
 // Sanitizar string
@@ -143,15 +144,21 @@ async function handleLogin(event) {
     const email = emailInput?.value?.trim() || '';
     const password = passwordInput?.value || '';
 
-    // Validar inputs
-    if (!validateEmail(email)) {
-        showNotification('Por favor, ingresa un email válido', 'error');
+    // Validar inputs básicos (solo verificar que no estén vacíos)
+    if (!email || email.trim().length === 0) {
+        showNotification('Por favor, ingresa tu email', 'error');
         return;
     }
 
-    if (!validatePassword(password)) {
-        showNotification('La contraseña debe tener al menos 6 caracteres', 'error');
+    if (!password || password.length === 0) {
+        showNotification('Por favor, ingresa tu contraseña', 'error');
         return;
+    }
+
+    // Validación opcional de formato de email (no bloqueante)
+    if (!validateEmail(email)) {
+        // Avisar pero permitir intentar (puede ser un formato válido que no cumple el regex)
+        console.warn('Formato de email puede ser inválido:', email);
     }
 
     try {
@@ -161,11 +168,15 @@ async function handleLogin(event) {
         });
 
         if (error) {
-            // No exponer detalles específicos del error
-            if (error.message.includes('Invalid login')) {
+            // Mostrar mensajes más descriptivos para ayudar al usuario
+            console.error('Error de login:', error);
+            
+            if (error.message && error.message.includes('Invalid login')) {
                 showNotification('Email o contraseña incorrectos', 'error');
+            } else if (error.message && error.message.includes('Email not confirmed')) {
+                showNotification('Por favor, verifica tu email antes de iniciar sesión', 'error');
             } else {
-                showNotification('Error al iniciar sesión. Intenta de nuevo.', 'error');
+                showNotification(`Error: ${error.message || 'No se pudo iniciar sesión'}`, 'error');
             }
             return;
         }
@@ -197,13 +208,18 @@ async function handleRegister(event) {
         return;
     }
 
-    if (!validateEmail(email)) {
+    if (!email || email.trim().length === 0) {
         showNotification('Por favor, ingresa un email válido', 'error');
         return;
     }
 
-    if (!validatePassword(password)) {
-        showNotification('La contraseña debe tener entre 6 y 128 caracteres', 'error');
+    if (!password || password.length === 0) {
+        showNotification('Por favor, ingresa una contraseña', 'error');
+        return;
+    }
+
+    if (password.length < 6) {
+        showNotification('La contraseña debe tener al menos 6 caracteres', 'error');
         return;
     }
 
