@@ -4,57 +4,68 @@
 // IMPORTANTE: Las variables de entorno se leen desde window.__ENV__
 // Next.js las inyectará automáticamente desde NEXT_PUBLIC_*
 
-// Leer variables desde window.__ENV__ (inyectado por Next.js)
-// IMPORTANTE: No usar valores por defecto hardcodeados en producción
-// Las variables deben estar configuradas en .env.local y Vercel
-const SUPABASE_URL = (typeof window !== 'undefined' && window.__ENV__?.NEXT_PUBLIC_SUPABASE_URL) || '';
-const SUPABASE_ANON_KEY = (typeof window !== 'undefined' && window.__ENV__?.NEXT_PUBLIC_SUPABASE_ANON_KEY) || '';
-
-// Validar que las variables estén configuradas
-if (typeof window !== 'undefined' && (!SUPABASE_URL || !SUPABASE_ANON_KEY)) {
-    console.error('❌ ERROR: Variables de entorno de Supabase no configuradas. Verifica NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY');
+// Función para obtener variables de entorno (se llama dinámicamente)
+function getSupabaseConfig() {
+    if (typeof window === 'undefined') return { url: '', key: '' };
+    
+    // Intentar leer desde window.__ENV__ (inyectado por Next.js)
+    const env = window.__ENV__ || {};
+    const url = env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    
+    return { url, key };
 }
 
 // Inicializar cliente de Supabase
 // El CDN de Supabase expone la librería de forma que podemos acceder a createClient
 (function initSupabase() {
     function tryInit() {
-        if (typeof window === 'undefined') return;
+        if (typeof window === 'undefined') return false;
         
         try {
-            // El CDN de Supabase expone supabase.createClient
-            if (window.supabase && typeof window.supabase.createClient === 'function') {
-                // Validar que tenemos las URLs necesarias
-                if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-                    console.warn('⚠️ Variables de Supabase no disponibles aún, reintentando...');
-                    return false;
-                }
-                
-                const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                window.supabase = supabaseClient;
-                window.supabaseClient = supabaseClient;
-                console.log('✅ Supabase inicializado correctamente');
-                window.supabaseReady = true;
-                return true;
+            // 1. Verificar que Supabase JS esté cargado
+            if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+                return false;
             }
+            
+            // 2. Leer variables de entorno dinámicamente
+            const config = getSupabaseConfig();
+            
+            if (!config.url || !config.key) {
+                return false; // Variables aún no disponibles
+            }
+            
+            // 3. Crear cliente de Supabase
+            const supabaseClient = window.supabase.createClient(config.url, config.key);
+            window.supabase = supabaseClient;
+            window.supabaseClient = supabaseClient;
+            window.supabaseReady = true;
+            console.log('✅ Supabase inicializado correctamente');
+            return true;
         } catch (error) {
             console.error('Error inicializando Supabase:', error);
+            return false;
         }
-        
-        return false;
     }
     
     // Intentar inmediatamente
     if (!tryInit()) {
-        // Si no funciona, reintentar cada 100ms hasta 5 segundos
+        // Si no funciona, reintentar cada 100ms hasta 10 segundos (100 intentos)
         let attempts = 0;
-        const maxAttempts = 50;
+        const maxAttempts = 100;
         const interval = setInterval(() => {
             attempts++;
-            if (tryInit() || attempts >= maxAttempts) {
+            const success = tryInit();
+            
+            if (success || attempts >= maxAttempts) {
                 clearInterval(interval);
                 if (attempts >= maxAttempts && !window.supabaseReady) {
-                    console.error('❌ No se pudo inicializar Supabase después de', maxAttempts, 'intentos');
+                    const config = getSupabaseConfig();
+                    if (!config.url || !config.key) {
+                        console.error('❌ ERROR: Variables de entorno de Supabase no configuradas. Verifica NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en Vercel o .env.local');
+                    } else {
+                        console.error('❌ No se pudo inicializar Supabase después de', maxAttempts, 'intentos');
+                    }
                 }
             }
         }, 100);

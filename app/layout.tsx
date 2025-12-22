@@ -20,13 +20,19 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
         {/* Inyectar variables de entorno para el cliente */}
+        {/* Este script debe ejecutarse ANTES que config.js */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              window.__ENV__ = {
-                NEXT_PUBLIC_SUPABASE_URL: ${JSON.stringify(process.env.NEXT_PUBLIC_SUPABASE_URL || '')},
-                NEXT_PUBLIC_SUPABASE_ANON_KEY: ${JSON.stringify(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '')}
-              };
+              (function() {
+                window.__ENV__ = window.__ENV__ || {};
+                window.__ENV__.NEXT_PUBLIC_SUPABASE_URL = ${JSON.stringify(process.env.NEXT_PUBLIC_SUPABASE_URL || '')};
+                window.__ENV__.NEXT_PUBLIC_SUPABASE_ANON_KEY = ${JSON.stringify(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '')};
+                console.log('📦 Variables de entorno inyectadas:', {
+                  hasUrl: !!window.__ENV__.NEXT_PUBLIC_SUPABASE_URL,
+                  hasKey: !!window.__ENV__.NEXT_PUBLIC_SUPABASE_ANON_KEY
+                });
+              })();
             `,
           }}
         />
