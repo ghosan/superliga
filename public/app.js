@@ -317,8 +317,17 @@ async function handleCreateFirstLiga(event) {
 async function handleLogout() {
     console.log('🚪 Cerrando sesión...');
     
+    // Asegurarse de que supabase esté disponible
+    const clientSupabase = window.supabase || window.supabaseClient;
+    if (!clientSupabase) {
+        console.error('❌ Supabase no disponible para logout');
+        // Forzar mostrar landing page de todas formas
+        showLandingPage();
+        return;
+    }
+    
     try {
-        const { error } = await supabase.auth.signOut();
+        const { error } = await clientSupabase.auth.signOut();
         console.log('Resultado signOut:', error ? 'Error' : 'OK');
         
         // Limpiar variables (siempre, aunque haya error)
@@ -3285,5 +3294,43 @@ function shareOnTwitter(code) {
 function shareOnWhatsapp(code) {
     const text = encodeURIComponent(`¡Únete a mi liga de SuperLiga! Código: ${code} - ${window.location.href}`);
     window.open(`https://wa.me/?text=${text}`, '_blank');
+}
+
+// Hacer funciones disponibles globalmente para onClick handlers
+if (typeof window !== 'undefined') {
+    window.showLoginModal = showLoginModal;
+    window.showRegisterModal = showRegisterModal;
+    window.showRulesModal = showRulesModal;
+    window.closeModals = closeModals;
+    window.handleLogin = handleLogin;
+    window.handleRegister = handleRegister;
+    window.handleCreateFirstLiga = handleCreateFirstLiga;
+    window.handleLogout = handleLogout;
+    window.showProfileModal = showProfileModal;
+    window.showCreateLigaModal = showCreateLigaModal;
+    window.showJoinLigaModal = showJoinLigaModal;
+    window.closeDashboardDetail = closeDashboardDetail;
+    window.changeJornada = changeJornada;
+    window.loadMatches = loadMatches;
+    window.savePredictions = savePredictions;
+    window.resetPredictions = resetPredictions;
+    window.loadLigaClassification = loadLigaClassification;
+    window.importFromExcel = importFromExcel;
+    window.clearExcelData = clearExcelData;
+    window.addMatch = addMatch;
+    window.loadAdminMatches = loadAdminMatches;
+    window.loadMatchesForResults = loadMatchesForResults;
+    window.setActiveJornada = setActiveJornada;
+    window.createLiga = createLiga;
+    window.joinLiga = joinLiga;
+    window.joinLigaFromProfile = joinLigaFromProfile;
+    window.previewAvatar = previewAvatar;
+    window.removeAvatar = removeAvatar;
+    window.saveProfile = saveProfile;
+    window.copyToClipboard = copyToClipboard;
+    window.shareOnFacebook = shareOnFacebook;
+    window.shareOnTwitter = shareOnTwitter;
+    window.shareOnWhatsapp = shareOnWhatsapp;
+    window.markPredictionChanged = markPredictionChanged;
 }
 

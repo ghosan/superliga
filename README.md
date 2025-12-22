@@ -175,3 +175,4 @@ El sistema actualiza automáticamente los partidos en curso cada 30 segundos:
 
 Este proyecto es privado y de uso personal.
 
+

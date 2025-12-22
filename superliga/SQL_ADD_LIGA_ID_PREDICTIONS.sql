@@ -46,3 +46,4 @@ UNIQUE(user_id, match_id, liga_id);
 --   no ejecutes el paso 3 (ALTER COLUMN SET NOT NULL)
 
 
+
