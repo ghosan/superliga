@@ -212,9 +212,20 @@ async function handleForgotPassword(event) {
     }
 
     try {
-        const supabase = window.supabase || window.supabaseClient;
-        if (!supabase) {
-            showNotification('Error: No se pudo conectar con el servidor', 'error');
+        // Esperar a que Supabase esté inicializado
+        let supabase = window.supabase || window.supabaseClient;
+        let retries = 0;
+        const maxRetries = 50; // 5 segundos máximo
+        
+        while ((!supabase || !window.supabaseReady) && retries < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            supabase = window.supabase || window.supabaseClient;
+            retries++;
+        }
+        
+        if (!supabase || !supabase.auth) {
+            console.error('Supabase no disponible después de esperar');
+            showNotification('Error: No se pudo conectar con el servidor. Por favor, recarga la página.', 'error');
             return;
         }
 
@@ -225,21 +236,34 @@ async function handleForgotPassword(event) {
 
         if (error) {
             console.error('Error al enviar email de recuperación:', error);
-            showNotification('Error al enviar el email. Verifica que el email sea correcto.', 'error');
+            
+            // Mensajes más específicos según el tipo de error
+            if (error.message && error.message.includes('rate limit')) {
+                showNotification('Demasiados intentos. Por favor, espera unos minutos e intenta de nuevo.', 'error');
+            } else if (error.message && error.message.includes('not found')) {
+                showNotification('No encontramos una cuenta con ese email.', 'error');
+            } else {
+                showNotification('Error al enviar el email. Verifica que el email sea correcto e intenta de nuevo.', 'error');
+            }
             return;
         }
 
-        showNotification('¡Email enviado! Revisa tu bandeja de entrada para restablecer tu contraseña.', 'success');
+        showNotification('¡Email enviado! Revisa tu bandeja de entrada (y carpeta de spam) para restablecer tu contraseña.', 'success');
         
-        // Cerrar modal después de 2 segundos
+        // Limpiar el campo de email
+        if (emailInput) {
+            emailInput.value = '';
+        }
+        
+        // Cerrar modal después de 3 segundos
         setTimeout(() => {
             closeModals();
             showLoginModal();
-        }, 2000);
+        }, 3000);
 
     } catch (error) {
         console.error('Error en recuperación de contraseña:', error);
-        showNotification('Error inesperado. Intenta de nuevo más tarde.', 'error');
+        showNotification('Error inesperado. Por favor, recarga la página e intenta de nuevo.', 'error');
     }
 }
 

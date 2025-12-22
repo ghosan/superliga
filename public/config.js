@@ -24,6 +24,12 @@ if (typeof window !== 'undefined' && (!SUPABASE_URL || !SUPABASE_ANON_KEY)) {
         try {
             // El CDN de Supabase expone supabase.createClient
             if (window.supabase && typeof window.supabase.createClient === 'function') {
+                // Validar que tenemos las URLs necesarias
+                if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+                    console.warn('⚠️ Variables de Supabase no disponibles aún, reintentando...');
+                    return false;
+                }
+                
                 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
                 window.supabase = supabaseClient;
                 window.supabaseClient = supabaseClient;
