@@ -20,15 +20,16 @@ async function initializeApp() {
     let retries = 0;
     const maxRetries = 100; // 10 segundos máximo
     
-    while ((!supabase || !window.supabaseReady) && retries < maxRetries) {
+    while ((!supabase || !window.supabaseReady || !supabase.auth) && retries < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, 100));
         supabase = window.supabase || window.supabaseClient;
         retries++;
     }
     
-    if (!supabase) {
-        console.error('❌ Error: Supabase no se pudo inicializar. Verifica config.js');
-        alert('Error: No se pudo conectar con la base de datos. Por favor, recarga la página.');
+    // Verificar que Supabase esté completamente inicializado
+    if (!supabase || !supabase.auth) {
+        console.error('❌ Error: Supabase no se pudo inicializar correctamente. Verifica que las variables de entorno estén configuradas.');
+        // No mostrar alert, solo log en consola para no interrumpir
         return;
     }
     
