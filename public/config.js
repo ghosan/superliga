@@ -4,9 +4,16 @@
 // IMPORTANTE: Las variables de entorno se leen desde window.__ENV__
 // Next.js las inyectará automáticamente desde NEXT_PUBLIC_*
 
-// Leer variables desde window.__ENV__ (inyectado por Next.js) o usar valores por defecto
-const SUPABASE_URL = (typeof window !== 'undefined' && window.__ENV__?.NEXT_PUBLIC_SUPABASE_URL) || 'https://ujcesimljlifirauhlzn.supabase.co';
-const SUPABASE_ANON_KEY = (typeof window !== 'undefined' && window.__ENV__?.NEXT_PUBLIC_SUPABASE_ANON_KEY) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqY2VzaW1samxpZmlyYXVobHpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NzAwOTYsImV4cCI6MjA3MzU0NjA5Nn0.h4iaFXK3ZtXzUIwMIY7GtUswAQR51zyD_sKCR9sRjaQ';
+// Leer variables desde window.__ENV__ (inyectado por Next.js)
+// IMPORTANTE: No usar valores por defecto hardcodeados en producción
+// Las variables deben estar configuradas en .env.local y Vercel
+const SUPABASE_URL = (typeof window !== 'undefined' && window.__ENV__?.NEXT_PUBLIC_SUPABASE_URL) || '';
+const SUPABASE_ANON_KEY = (typeof window !== 'undefined' && window.__ENV__?.NEXT_PUBLIC_SUPABASE_ANON_KEY) || '';
+
+// Validar que las variables estén configuradas
+if (typeof window !== 'undefined' && (!SUPABASE_URL || !SUPABASE_ANON_KEY)) {
+    console.error('❌ ERROR: Variables de entorno de Supabase no configuradas. Verifica NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY');
+}
 
 // Inicializar cliente de Supabase
 // El CDN de Supabase expone la librería de forma que podemos acceder a createClient

@@ -115,11 +115,44 @@ document.querySelectorAll('.modal').forEach(modal => {
     });
 });
 
+// Validar email
+function validateEmail(email) {
+    if (!email || typeof email !== 'string') return false;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email.trim()) && email.length <= 255;
+}
+
+// Validar contraseña
+function validatePassword(password) {
+    if (!password || typeof password !== 'string') return false;
+    return password.length >= 6 && password.length <= 128;
+}
+
+// Sanitizar string
+function sanitizeString(str) {
+    if (!str || typeof str !== 'string') return '';
+    return str.trim().slice(0, 500); // Limitar longitud
+}
+
 async function handleLogin(event) {
     event.preventDefault();
     
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
+    const emailInput = document.getElementById('login-email');
+    const passwordInput = document.getElementById('login-password');
+    
+    const email = emailInput?.value?.trim() || '';
+    const password = passwordInput?.value || '';
+
+    // Validar inputs
+    if (!validateEmail(email)) {
+        showNotification('Por favor, ingresa un email válido', 'error');
+        return;
+    }
+
+    if (!validatePassword(password)) {
+        showNotification('La contraseña debe tener al menos 6 caracteres', 'error');
+        return;
+    }
 
     try {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -127,22 +160,58 @@ async function handleLogin(event) {
             password
         });
 
-        if (error) throw error;
+        if (error) {
+            // No exponer detalles específicos del error
+            if (error.message.includes('Invalid login')) {
+                showNotification('Email o contraseña incorrectos', 'error');
+            } else {
+                showNotification('Error al iniciar sesión. Intenta de nuevo.', 'error');
+            }
+            return;
+        }
 
         showNotification('¡Bienvenido de nuevo!', 'success');
         closeModals();
     } catch (error) {
-        showNotification(error.message || 'Error al iniciar sesión', 'error');
+        console.error('Error en login:', error);
+        showNotification('Error al iniciar sesión. Intenta de nuevo.', 'error');
     }
 }
 
 async function handleRegister(event) {
     event.preventDefault();
     
-    const ligaCode = document.getElementById('register-liga-code').value.toUpperCase().trim();
-    const name = document.getElementById('register-name').value;
-    const email = document.getElementById('register-email').value;
-    const password = document.getElementById('register-password').value;
+    const ligaCodeInput = document.getElementById('register-liga-code');
+    const nameInput = document.getElementById('register-name');
+    const emailInput = document.getElementById('register-email');
+    const passwordInput = document.getElementById('register-password');
+    
+    const ligaCode = ligaCodeInput ? sanitizeString(ligaCodeInput.value).toUpperCase().slice(0, 10) : '';
+    const name = nameInput ? sanitizeString(nameInput.value).slice(0, 100) : '';
+    const email = emailInput?.value?.trim() || '';
+    const password = passwordInput?.value || '';
+
+    // Validar inputs
+    if (!name || name.length < 2) {
+        showNotification('El nombre debe tener al menos 2 caracteres', 'error');
+        return;
+    }
+
+    if (!validateEmail(email)) {
+        showNotification('Por favor, ingresa un email válido', 'error');
+        return;
+    }
+
+    if (!validatePassword(password)) {
+        showNotification('La contraseña debe tener entre 6 y 128 caracteres', 'error');
+        return;
+    }
+
+    // Validar código de liga (si se proporciona)
+    if (ligaCode && (!/^[A-Z0-9]+$/.test(ligaCode) || ligaCode.length !== 6)) {
+        showNotification('El código de liga debe tener 6 caracteres alfanuméricos', 'error');
+        return;
+    }
 
     try {
         let liga = null;
@@ -173,7 +242,18 @@ async function handleRegister(event) {
             }
         });
 
-        if (authError) throw authError;
+        if (authError) {
+            // No exponer detalles específicos del error
+            if (authError.message.includes('already registered')) {
+                showNotification('Este email ya está registrado. Inicia sesión en su lugar.', 'error');
+            } else if (authError.message.includes('password')) {
+                showNotification('La contraseña no cumple los requisitos de seguridad', 'error');
+            } else {
+                showNotification('Error al registrar. Intenta de nuevo.', 'error');
+            }
+            console.error('Error en registro:', authError);
+            return;
+        }
 
         // 3. Crear perfil en la tabla users
         if (authData.user) {

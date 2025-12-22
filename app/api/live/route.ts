@@ -6,8 +6,73 @@ export const dynamic = 'force-dynamic';
 // Cache en memoria para almacenar respuestas
 const cache = new Map<string, { data: any; timestamp: number }>();
 
+// Rate limiting simple en memoria
+const rateLimit = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minuto
+const MAX_REQUESTS_PER_WINDOW = 30; // 30 requests por minuto
+
 // Tiempo de cache: 120 segundos
 const CACHE_DURATION = 120 * 1000;
+
+/**
+ * Validar y sanitizar el fixtureId
+ */
+function validateFixtureId(fixtureId: string | null): number | null {
+  if (!fixtureId) return null;
+  
+  // Eliminar espacios y validar que sea solo números
+  const cleaned = fixtureId.trim();
+  if (!/^\d+$/.test(cleaned)) {
+    return null;
+  }
+  
+  const num = parseInt(cleaned, 10);
+  
+  // Validar rango razonable (1 a 10 millones)
+  if (isNaN(num) || num < 1 || num > 10000000) {
+    return null;
+  }
+  
+  return num;
+}
+
+/**
+ * Verificar rate limiting
+ */
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const userLimit = rateLimit.get(ip);
+  
+  if (!userLimit || now > userLimit.resetTime) {
+    rateLimit.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return true;
+  }
+  
+  if (userLimit.count >= MAX_REQUESTS_PER_WINDOW) {
+    return false;
+  }
+  
+  userLimit.count++;
+  return true;
+}
+
+/**
+ * Obtener IP del cliente
+ */
+function getClientIP(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  const realIP = request.headers.get('x-real-ip');
+  
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  
+  if (realIP) {
+    return realIP;
+  }
+  
+  return 'unknown';
+}
 
 /**
  * API Route para obtener datos de partidos en vivo desde API-Football
@@ -22,12 +87,23 @@ const CACHE_DURATION = 120 * 1000;
  */
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientIP = getClientIP(request);
+    if (!checkRateLimit(clientIP)) {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Por favor, intenta de nuevo más tarde.' },
+        { status: 429 }
+      );
+    }
+
+    // Validar y sanitizar input
     const searchParams = request.nextUrl.searchParams;
-    const fixtureId = searchParams.get('fixture') || searchParams.get('fixtureId');
+    const fixtureIdRaw = searchParams.get('fixture') || searchParams.get('fixtureId');
+    const fixtureId = validateFixtureId(fixtureIdRaw);
 
     if (!fixtureId) {
       return NextResponse.json(
-        { error: 'Se requiere el parámetro fixture' },
+        { error: 'ID de partido inválido' },
         { status: 400 }
       );
     }
@@ -52,13 +128,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Llamar a API-Football
-    const apiUrl = `https://v3.football.api-sports.io/fixtures?id=${fixtureId}`;
+    // Usar parámetros codificados para evitar inyección de URL
+    const apiUrl = new URL('https://v3.football.api-sports.io/fixtures');
+    apiUrl.searchParams.set('id', fixtureId.toString());
     
-    const response = await fetch(apiUrl, {
+    const response = await fetch(apiUrl.toString(), {
       headers: {
         'x-rapidapi-key': apiKey,
         'x-rapidapi-host': 'v3.football.api-sports.io'
       },
+      // Timeout de 10 segundos
+      signal: AbortSignal.timeout(10000),
       // Cache en el navegador (opcional, pero útil)
       next: { revalidate: 120 }
     });
@@ -114,9 +194,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedData);
 
   } catch (error: any) {
+    // No exponer detalles del error al cliente
     console.error('Error en API /api/live:', error);
+    
+    // Limpiar rate limit en caso de error
+    const clientIP = getClientIP(request);
+    rateLimit.delete(clientIP);
+    
     return NextResponse.json(
-      { error: error.message || 'Error al obtener datos del partido' },
+      { error: 'Error al obtener datos del partido. Por favor, intenta más tarde.' },
       { status: 500 }
     );
   }
