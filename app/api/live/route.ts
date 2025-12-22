@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Marcar esta ruta como dinámica (requerido porque usa searchParams)
+export const dynamic = 'force-dynamic';
+
 // Cache en memoria para almacenar respuestas
 const cache = new Map<string, { data: any; timestamp: number }>();
 
@@ -20,7 +23,7 @@ const CACHE_DURATION = 120 * 1000;
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const fixtureId = searchParams.get('fixture');
+    const fixtureId = searchParams.get('fixture') || searchParams.get('fixtureId');
 
     if (!fixtureId) {
       return NextResponse.json(
