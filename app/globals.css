@@ -114,7 +114,9 @@ body {
 .hero-section {
     min-height: 100vh;
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    background-image: url('/stadium-background.svg');
+    background-image: 
+        linear-gradient(rgba(15, 23, 42, 0.7), rgba(30, 41, 59, 0.8)),
+        url('/stadium-bg.png');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
