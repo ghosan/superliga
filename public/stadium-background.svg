@@ -1,0 +1,37 @@
+<svg width="1920" height="1080" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="stadiumGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e293b;stop-opacity:1" />
+    </linearGradient>
+    <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse">
+      <path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    </pattern>
+  </defs>
+  
+  <!-- Background gradient -->
+  <rect width="100%" height="100%" fill="url(#stadiumGrad)"/>
+  
+  <!-- Grid pattern -->
+  <rect width="100%" height="100%" fill="url(#grid)"/>
+  
+  <!-- Simplified stadium architectural lines -->
+  <!-- Main structure outline -->
+  <path d="M 200 800 L 1720 800" stroke="rgba(255,255,255,0.12)" stroke-width="2" fill="none"/>
+  <path d="M 200 800 Q 960 400 1720 800" stroke="rgba(255,255,255,0.1)" stroke-width="1.5" fill="none"/>
+  
+  <!-- Stands lines -->
+  <path d="M 100 900 Q 960 700 1820 900" stroke="rgba(255,255,255,0.08)" stroke-width="1" fill="none"/>
+  <path d="M 150 850 Q 960 550 1770 850" stroke="rgba(255,255,255,0.1)" stroke-width="1" fill="none"/>
+  
+  <!-- Vertical support lines -->
+  <line x1="400" y1="800" x2="400" y2="600" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <line x1="800" y1="800" x2="800" y2="550" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <line x1="1120" y1="800" x2="1120" y2="550" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <line x1="1520" y1="800" x2="1520" y2="600" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  
+  <!-- Field lines -->
+  <ellipse cx="960" cy="800" rx="300" ry="150" stroke="rgba(255,255,255,0.06)" stroke-width="1" fill="none"/>
+  <rect x="660" y="725" width="600" height="150" stroke="rgba(255,255,255,0.06)" stroke-width="1" fill="none"/>
+</svg>
+
