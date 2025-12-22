@@ -230,10 +230,19 @@ async function handleForgotPassword(event) {
             return;
         }
 
-        // Obtener la URL correcta para redirección (producción o desarrollo)
-        const redirectUrl = window.location.origin.includes('localhost') 
-            ? `${window.location.origin}/reset-password`
-            : `${window.location.origin}/reset-password`; // Usar siempre la URL actual
+        // Obtener la URL correcta para redirección
+        // IMPORTANTE: Supabase necesita la URL exacta de producción configurada en su dashboard
+        // Si estás en localhost, Supabase redirigirá a la URL configurada en su dashboard
+        // Por eso siempre debemos usar la URL de producción de Vercel
+        const isLocalhost = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+        
+        // Si estás en localhost, usar la URL de producción (debe estar configurada en Supabase)
+        // Si estás en producción, usar la URL actual
+        // NOTA: Cambia 'tu-proyecto-vercel' por el nombre real de tu proyecto en Vercel
+        const productionUrl = 'https://superliga-ghosan.vercel.app'; // CAMBIAR POR TU URL DE VERCEL
+        const redirectUrl = isLocalhost 
+            ? `${productionUrl}/reset-password`
+            : `${window.location.origin}/reset-password`;
         
         console.log('Enviando email de recuperación con redirectTo:', redirectUrl);
         

@@ -2,26 +2,50 @@
 
 import { useEffect, useState } from 'react'
 import Script from 'next/script'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [supabaseReady, setSupabaseReady] = useState(false)
 
   useEffect(() => {
-    // Verificar que tenemos el token en la URL
-    const accessToken = searchParams.get('access_token')
-    const type = searchParams.get('type')
+    // El token viene en el hash (#) de la URL, no en query params
+    // Ejemplo: #access_token=...&type=recovery
     
-    if (type === 'recovery' && accessToken) {
-      console.log('Token de recuperación recibido')
-    }
-  }, [searchParams])
+    // Esperar a que Supabase esté listo
+    const checkSupabase = setInterval(() => {
+      const supabase = (window as any).supabase || (window as any).supabaseClient
+      if (supabase && supabase.auth && (window as any).supabaseReady) {
+        setSupabaseReady(true)
+        clearInterval(checkSupabase)
+        
+        // Verificar si hay un token en el hash
+        const hash = window.location.hash
+        if (hash.includes('access_token') && hash.includes('type=recovery')) {
+          console.log('Token de recuperación detectado en la URL')
+          // El token ya está en la sesión de Supabase, no necesitamos extraerlo manualmente
+        } else {
+          // Si no hay token, puede que el usuario haya llegado aquí directamente
+          console.warn('No se detectó token de recuperación en la URL')
+        }
+      }
+    }, 100)
+
+    // Timeout después de 10 segundos
+    setTimeout(() => {
+      clearInterval(checkSupabase)
+      if (!supabaseReady) {
+        setError('Error: No se pudo conectar con el servidor. Por favor, recarga la página.')
+      }
+    }, 10000)
+
+    return () => clearInterval(checkSupabase)
+  }, [supabaseReady])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,6 +61,11 @@ export default function ResetPasswordPage() {
       return
     }
 
+    if (!supabaseReady) {
+      setError('Esperando a que el servidor esté listo...')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -44,6 +73,15 @@ export default function ResetPasswordPage() {
       
       if (!supabase || !supabase.auth) {
         setError('Error: Supabase no está disponible. Por favor, recarga la página.')
+        setLoading(false)
+        return
+      }
+
+      // Verificar que hay una sesión activa (del token de recuperación)
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        setError('El enlace de recuperación ha expirado o no es válido. Por favor, solicita uno nuevo.')
         setLoading(false)
         return
       }
@@ -62,8 +100,9 @@ export default function ResetPasswordPage() {
 
       setSuccess(true)
       
-      // Redirigir al login después de 2 segundos
-      setTimeout(() => {
+      // Cerrar sesión y redirigir al login después de 2 segundos
+      setTimeout(async () => {
+        await supabase.auth.signOut()
         router.push('/')
       }, 2000)
 
@@ -117,6 +156,13 @@ export default function ResetPasswordPage() {
               </p>
               <p style={{ fontSize: '0.875rem', color: '#64748b' }}>
                 Redirigiendo al inicio de sesión...
+              </p>
+            </div>
+          ) : !supabaseReady ? (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <i className="fas fa-spinner fa-spin" style={{ fontSize: '2rem', color: '#64748b', marginBottom: '16px' }}></i>
+              <p style={{ fontSize: '0.875rem', color: '#64748b' }}>
+                Cargando...
               </p>
             </div>
           ) : (
