@@ -72,10 +72,8 @@
 /* Base */
 body {
     font-family: var(--font-family);
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    background-image: 
-        linear-gradient(rgba(15, 23, 42, 0.7), rgba(30, 41, 59, 0.8)),
-        url('/stadium-bg-all.png');
+    background-color: #ffffff;
+    background-image: url('/stadium-bg-all.png');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -121,14 +119,7 @@ body {
    ======================================== */
 .hero-section {
     min-height: 100vh;
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    background-image: 
-        linear-gradient(rgba(15, 23, 42, 0.65), rgba(30, 41, 59, 0.75)),
-        url('/stadium-bg.png');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-attachment: fixed;
+    background-color: transparent;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -141,11 +132,10 @@ body {
 
 .hero-content {
     text-align: center;
-    color: var(--slate-50);
+    color: var(--slate-900);
     position: relative;
     z-index: 1;
     max-width: 520px;
-    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .logo-container {
@@ -158,34 +148,30 @@ body {
 
 .logo-icon {
     font-size: 52px;
-    color: #ffffff;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    color: var(--slate-900);
 }
 
 .hero-content h1 {
     font-size: 2.75rem;
     font-weight: 800;
     letter-spacing: -0.03em;
-    color: #ffffff;
-    text-shadow: 0 3px 12px rgba(0, 0, 0, 0.6), 0 1px 4px rgba(0, 0, 0, 0.4);
+    color: var(--slate-900);
 }
 
 .tagline {
     font-size: 1rem;
     font-weight: 600;
-    color: #ffffff;
+    color: var(--slate-700);
     margin-bottom: 8px;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .description {
     font-size: 1.125rem;
-    color: #ffffff;
+    color: var(--slate-700);
     margin-bottom: 40px;
     line-height: 1.6;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .auth-buttons {
@@ -263,21 +249,20 @@ body {
 
 /* Botón secundario para landing - mejorado para mejor legibilidad */
 .btn-ghost {
-    background: rgba(255, 255, 255, 0.95);
+    background: white;
     color: var(--slate-900);
-    border: 2px solid rgba(255, 255, 255, 0.3);
+    border: 2px solid var(--slate-300);
     padding: 14px 28px;
     font-size: 15px;
     font-weight: 600;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .btn-ghost:hover {
-    background: rgba(255, 255, 255, 1);
-    border-color: rgba(255, 255, 255, 0.5);
+    background: var(--slate-50);
+    border-color: var(--slate-400);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .btn-danger {
