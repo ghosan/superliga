@@ -230,9 +230,16 @@ async function handleForgotPassword(event) {
             return;
         }
 
+        // Obtener la URL correcta para redirección (producción o desarrollo)
+        const redirectUrl = window.location.origin.includes('localhost') 
+            ? `${window.location.origin}/reset-password`
+            : `${window.location.origin}/reset-password`; // Usar siempre la URL actual
+        
+        console.log('Enviando email de recuperación con redirectTo:', redirectUrl);
+        
         // Enviar email de recuperación
         const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/reset-password`,
+            redirectTo: redirectUrl,
         });
 
         if (error) {
