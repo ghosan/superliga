@@ -517,7 +517,7 @@ async function handleCreateFirstLiga(event) {
             throw ligaError;
         }
 
-        // 4. Añadir creador como miembro de la liga
+        // 4. Añadir creador como miembro de la liga automáticamente
         const { error: memberError } = await supabase
             .from('liga_members')
             .insert({
@@ -526,7 +526,11 @@ async function handleCreateFirstLiga(event) {
             });
 
         if (memberError) {
-            console.error('Error añadiendo a liga:', memberError);
+            console.error('Error añadiendo creador a la liga:', memberError);
+            // No lanzamos error porque la liga ya se creó, solo mostramos advertencia
+            showNotification('Liga creada, pero hubo un problema al añadirte como miembro. Puedes unirte manualmente.', 'warning');
+        } else {
+            console.log('✅ Creador añadido automáticamente a la liga');
         }
 
         // Mostrar código de liga al usuario
@@ -2794,7 +2798,7 @@ async function createLiga(event) {
 
         if (ligaError) throw ligaError;
 
-        // Añadir creador como miembro
+        // Añadir creador como miembro automáticamente
         const { error: memberError } = await supabase
             .from('liga_members')
             .insert({
@@ -2802,9 +2806,15 @@ async function createLiga(event) {
                 user_id: currentUser.id
             });
 
-        if (memberError) throw memberError;
+        if (memberError) {
+            console.error('Error añadiendo creador a la liga:', memberError);
+            // No lanzamos error porque la liga ya se creó, solo mostramos advertencia
+            showNotification('Liga creada, pero hubo un problema al añadirte como miembro. Puedes unirte manualmente.', 'warning');
+        } else {
+            console.log('✅ Creador añadido automáticamente a la liga');
+        }
 
-        showNotification('¡Liga creada correctamente!', 'success');
+        showNotification('¡Liga creada correctamente! Ya estás incluido en ella.', 'success');
         closeModals();
         document.getElementById('create-liga-form').reset();
         loadUserLigas();
