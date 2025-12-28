@@ -2321,7 +2321,12 @@ body {
    ======================================== */
 .liga-actions {
     display: flex;
+    justify-content: space-between;
+    align-items: center;
     gap: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--slate-200);
 }
 
 .ligas-container {
@@ -2350,12 +2355,38 @@ body {
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 12px;
+    gap: 12px;
+}
+
+.liga-card-header > div:first-child {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .liga-card-header h3 {
     font-size: 1rem;
     font-weight: 600;
     color: var(--slate-800);
+    margin: 0;
+}
+
+.liga-badge-creator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: white;
+    border-radius: var(--rounded-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+    width: fit-content;
+}
+
+.liga-badge-creator i {
+    font-size: 0.813rem;
 }
 
 .liga-members {

@@ -2921,11 +2921,15 @@ async function loadUserLigas() {
             if (!item.ligas) return '';
             const liga = item.ligas;
             const memberCount = counts[liga.id] || 1;
+            const isCreator = liga.created_by === currentUser.id;
             
             return `
                 <div class="liga-card" onclick="showLigaDetail('${liga.id}')">
                     <div class="liga-card-header">
-                        <h3>${liga.name}</h3>
+                        <div>
+                            <h3>${liga.name}</h3>
+                            ${isCreator ? '<span class="liga-badge-creator"><i class="fas fa-crown"></i> Creador</span>' : ''}
+                        </div>
                         <div class="liga-members">
                             <i class="fas fa-users"></i>
                             ${memberCount} miembros
@@ -2939,16 +2943,23 @@ async function loadUserLigas() {
                             <i class="fas fa-copy"></i>
                         </button>
                     </div>
-                    <div class="liga-share">
-                        <button class="share-btn facebook" onclick="event.stopPropagation(); shareOnFacebook('${liga.code}')">
-                            <i class="fab fa-facebook"></i>
-                        </button>
-                        <button class="share-btn twitter" onclick="event.stopPropagation(); shareOnTwitter('${liga.code}')">
-                            <i class="fab fa-twitter"></i>
-                        </button>
-                        <button class="share-btn whatsapp" onclick="event.stopPropagation(); shareOnWhatsapp('${liga.code}')">
-                            <i class="fab fa-whatsapp"></i>
-                        </button>
+                    <div class="liga-actions">
+                        <div class="liga-share">
+                            <button class="share-btn facebook" onclick="event.stopPropagation(); shareOnFacebook('${liga.code}')">
+                                <i class="fab fa-facebook"></i>
+                            </button>
+                            <button class="share-btn twitter" onclick="event.stopPropagation(); shareOnTwitter('${liga.code}')">
+                                <i class="fab fa-twitter"></i>
+                            </button>
+                            <button class="share-btn whatsapp" onclick="event.stopPropagation(); shareOnWhatsapp('${liga.code}')">
+                                <i class="fab fa-whatsapp"></i>
+                            </button>
+                        </div>
+                        ${isCreator ? `
+                            <button class="btn btn-danger btn-small" onclick="event.stopPropagation(); deleteLiga('${liga.id}', '${liga.name}')" title="Eliminar liga">
+                                <i class="fas fa-trash"></i> Eliminar
+                            </button>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -4062,6 +4073,7 @@ if (typeof window !== 'undefined') {
     window.shareOnTwitter = shareOnTwitter;
     window.shareOnWhatsapp = shareOnWhatsapp;
     window.markPredictionChanged = markPredictionChanged;
+    window.deleteLiga = deleteLiga;
     window.loadLigasForEditPoints = loadLigasForEditPoints;
     window.loadUsersForLiga = loadUsersForLiga;
     window.updateUserPoints = updateUserPoints;
@@ -4069,5 +4081,80 @@ if (typeof window !== 'undefined') {
     window.resetLiga = resetLiga;
     window.resetWeb = resetWeb;
     window.resetAllUserPoints = resetAllUserPoints;
+    window.deleteLiga = deleteLiga;
+}
+
+// ========================================
+// ELIMINAR LIGA
+// ========================================
+async function deleteLiga(ligaId, ligaName) {
+    if (!currentUser) {
+        showNotification('Debes estar autenticado para eliminar una liga', 'error');
+        return;
+    }
+
+    // Verificar que el usuario es el creador de la liga
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase) return;
+
+    try {
+        const { data: liga, error: ligaError } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('ligas')
+                .select('created_by')
+                .eq('id', ligaId)
+                .single()
+        , 5000);
+
+        if (ligaError) throw ligaError;
+
+        if (liga.created_by !== currentUser.id) {
+            showNotification('Solo el creador de la liga puede eliminarla', 'error');
+            return;
+        }
+
+        if (!confirm(`¿Estás seguro de eliminar la liga "${ligaName}"?\n\nEsta acción eliminará:\n- La liga\n- Todos los miembros de la liga\n- Esta acción NO se puede deshacer.`)) {
+            return;
+        }
+
+        if (!confirm('ÚLTIMA CONFIRMACIÓN: ¿Eliminar la liga definitivamente?')) {
+            return;
+        }
+
+        showNotification('Eliminando liga...', 'info');
+
+        // 1. Eliminar todos los miembros de la liga
+        const { error: membersError } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('liga_members')
+                .delete()
+                .eq('liga_id', ligaId)
+        , 10000);
+
+        if (membersError) {
+            console.warn('Error eliminando miembros (continuando):', membersError);
+        }
+
+        // 2. Eliminar la liga
+        const { error: deleteError } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('ligas')
+                .delete()
+                .eq('id', ligaId)
+        , 10000);
+
+        if (deleteError) throw deleteError;
+
+        showNotification(`Liga "${ligaName}" eliminada correctamente`, 'success');
+
+        // Recargar la lista de ligas
+        setTimeout(() => {
+            loadUserLigas();
+        }, 1000);
+
+    } catch (error) {
+        console.error('Error eliminando liga:', error);
+        showNotification('Error al eliminar la liga: ' + (error.message || 'Error desconocido'), 'error');
+    }
 }
 
