@@ -3562,3 +3562,37 @@ body {
     }
 }
 
+/* ========================================
+   ADMIN: ESTILOS ADICIONALES
+   ======================================== */
+.warning-card {
+    border: 2px solid var(--red-300);
+    background: var(--red-50);
+}
+
+.warning-text {
+    color: var(--red-700);
+    font-weight: 500;
+}
+
+.info-box {
+    background: var(--blue-50);
+    border: 1px solid var(--blue-200);
+    border-radius: var(--rounded-lg);
+    padding: 16px;
+    margin: 16px 0;
+}
+
+.info-box p {
+    margin: 8px 0;
+    color: var(--slate-700);
+    font-size: 0.938rem;
+}
+
+.help-text-small {
+    font-size: 0.813rem;
+    color: var(--slate-500);
+    margin-top: 8px;
+    font-style: italic;
+}
+

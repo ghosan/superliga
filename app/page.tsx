@@ -710,6 +710,8 @@ export default function Home() {
               <button className="admin-tab-btn" data-admin-tab="resultados">Introducir Resultados</button>
               <button className="admin-tab-btn" data-admin-tab="usuarios">Usuarios</button>
               <button className="admin-tab-btn" data-admin-tab="jornadas">Jornadas</button>
+              <button className="admin-tab-btn" data-admin-tab="puntos">Editar Puntos</button>
+              <button className="admin-tab-btn" data-admin-tab="reiniciar">Reiniciar Liga</button>
             </div>
 
             {/* Gestionar Partidos */}
@@ -850,6 +852,107 @@ export default function Home() {
                     <i className="fas fa-check"></i> Establecer como Activa
                   </button>
                 </form>
+              </div>
+            </div>
+
+            {/* Editar Puntos de Usuario */}
+            <div id="puntos-admin-tab" className="admin-tab-content">
+              <div className="admin-card">
+                <h3><i className="fas fa-edit"></i> Editar Puntos de Usuario</h3>
+                <p className="help-text">Selecciona una liga y un usuario para editar sus puntos en esa liga.</p>
+                
+                <div className="form-group">
+                  <label htmlFor="edit-puntos-liga-select">Liga</label>
+                  <select id="edit-puntos-liga-select" onChange={() => {
+                    if (typeof window !== 'undefined' && (window as any).loadUsersForLiga) {
+                      (window as any).loadUsersForLiga()
+                    }
+                  }}>
+                    <option value="">Selecciona una liga</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="edit-puntos-user-select">Usuario</label>
+                  <select id="edit-puntos-user-select">
+                    <option value="">Primero selecciona una liga</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="edit-puntos-value">Nuevos Puntos</label>
+                  <input type="number" id="edit-puntos-value" min="0" placeholder="0" />
+                  <p className="help-text-small">Los puntos actuales del usuario se mostrarán al seleccionarlo</p>
+                </div>
+
+                <div id="edit-puntos-current" className="info-box" style={{display: 'none'}}>
+                  <strong>Puntos actuales:</strong> <span id="edit-puntos-current-value">0</span>
+                </div>
+
+                <button className="btn btn-primary" onClick={() => {
+                  if (typeof window !== 'undefined' && (window as any).updateUserPoints) {
+                    (window as any).updateUserPoints()
+                  }
+                }}>
+                  <i className="fas fa-save"></i> Actualizar Puntos
+                </button>
+              </div>
+            </div>
+
+            {/* Reiniciar Liga */}
+            <div id="reiniciar-admin-tab" className="admin-tab-content">
+              <div className="admin-card warning-card">
+                <h3><i className="fas fa-exclamation-triangle"></i> Reiniciar Liga</h3>
+                <p className="help-text warning-text">
+                  Esta acción eliminará <strong>TODOS</strong> los puntos de todos los usuarios en la liga seleccionada. 
+                  Esta acción NO se puede deshacer.
+                </p>
+                
+                <div className="form-group">
+                  <label htmlFor="reiniciar-liga-select">Liga a Reiniciar</label>
+                  <select id="reiniciar-liga-select">
+                    <option value="">Selecciona una liga</option>
+                  </select>
+                </div>
+
+                <div id="reiniciar-liga-info" className="info-box" style={{display: 'none'}}>
+                  <p><strong>Miembros:</strong> <span id="reiniciar-liga-members">0</span></p>
+                  <p><strong>Puntos totales a eliminar:</strong> <span id="reiniciar-liga-total-points">0</span></p>
+                </div>
+
+                <div className="form-group checkbox-group">
+                  <input type="checkbox" id="reiniciar-liga-confirm" />
+                  <label htmlFor="reiniciar-liga-confirm">Confirmo que quiero eliminar todos los puntos de esta liga</label>
+                </div>
+
+                <button className="btn btn-danger" onClick={() => {
+                  if (typeof window !== 'undefined' && (window as any).resetLiga) {
+                    (window as any).resetLiga()
+                  }
+                }}>
+                  <i className="fas fa-trash"></i> Reiniciar Liga
+                </button>
+              </div>
+
+              <div className="admin-card">
+                <h3><i className="fas fa-broom"></i> Reiniciar Web (Eliminar Partidos)</h3>
+                <p className="help-text warning-text">
+                  Esta acción eliminará <strong>TODOS</strong> los partidos y pronósticos de la base de datos. 
+                  Los usuarios y ligas se mantendrán, pero todos los puntos se reiniciarán a 0.
+                </p>
+
+                <div className="form-group checkbox-group">
+                  <input type="checkbox" id="reiniciar-web-confirm" />
+                  <label htmlFor="reiniciar-web-confirm">Confirmo que quiero eliminar todos los partidos</label>
+                </div>
+
+                <button className="btn btn-danger" onClick={() => {
+                  if (typeof window !== 'undefined' && (window as any).resetWeb) {
+                    (window as any).resetWeb()
+                  }
+                }}>
+                  <i className="fas fa-trash-alt"></i> Eliminar Todos los Partidos
+                </button>
               </div>
             </div>
           </section>

@@ -3059,6 +3059,10 @@ function setupAdminTabs() {
                 loadMatchesForResults();
             } else if (tab === 'usuarios') {
                 loadUsersList();
+            } else if (tab === 'puntos') {
+                loadLigasForEditPoints();
+            } else if (tab === 'reiniciar') {
+                loadLigasForReset();
             }
         });
     });
@@ -4058,5 +4062,11 @@ if (typeof window !== 'undefined') {
     window.shareOnTwitter = shareOnTwitter;
     window.shareOnWhatsapp = shareOnWhatsapp;
     window.markPredictionChanged = markPredictionChanged;
+    window.loadLigasForEditPoints = loadLigasForEditPoints;
+    window.loadUsersForLiga = loadUsersForLiga;
+    window.updateUserPoints = updateUserPoints;
+    window.loadLigasForReset = loadLigasForReset;
+    window.resetLiga = resetLiga;
+    window.resetWeb = resetWeb;
 }
 
