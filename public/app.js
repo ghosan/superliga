@@ -84,6 +84,49 @@ if (document.readyState === 'loading') {
 }
 
 // ========================================
+// UTILIDADES
+// ========================================
+/**
+ * Obtener cliente de Supabase de forma segura
+ * @returns {Object|null} Cliente de Supabase o null si no está disponible
+ */
+function getSupabase() {
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        console.warn('⚠️ Supabase no está disponible');
+        return null;
+    }
+    if (!window.supabaseReady) {
+        console.warn('⚠️ Supabase aún no está listo');
+        return null;
+    }
+    return supabase;
+}
+
+/**
+ * Ejecutar una consulta a Supabase con timeout
+ * @param {Function} queryFn Función que retorna la promesa de la consulta
+ * @param {number} timeoutMs Timeout en milisegundos (default: 10000)
+ * @returns {Promise} Resultado de la consulta o error de timeout
+ */
+async function executeQueryWithTimeout(queryFn, timeoutMs = 10000) {
+    const queryPromise = queryFn();
+    const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error(`Timeout: La consulta tardó más de ${timeoutMs/1000} segundos`)), timeoutMs)
+    );
+    
+    try {
+        const result = await Promise.race([queryPromise, timeoutPromise]);
+        return result;
+    } catch (error) {
+        if (error instanceof Error && error.message.includes('Timeout')) {
+            throw error;
+        }
+        throw error;
+    }
+}
+
+// ========================================
 // AUTENTICACIÓN
 // ========================================
 function showLoginModal() {
@@ -764,14 +807,40 @@ async function loadDashboardLigaCards() {
         return;
     }
 
+    // Verificar que Supabase esté disponible
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error de conexión</h3>
+                <p>No se pudo conectar con la base de datos. Por favor, recarga la página.</p>
+            </div>
+        `;
+        return;
+    }
+
     container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
 
     try {
-        // Obtener ligas del usuario
-        const { data: userLigas, error } = await supabase
+        // Añadir timeout a la consulta
+        const queryPromise = supabase
             .from('liga_members')
             .select('liga_id, ligas(id, name)')
             .eq('user_id', currentUser.id);
+        
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout: La consulta tardó más de 10 segundos')), 10000)
+        );
+        
+        let userLigas, error;
+        try {
+            const result = await Promise.race([queryPromise, timeoutPromise]);
+            userLigas = result.data;
+            error = result.error;
+        } catch (timeoutError) {
+            throw timeoutError;
+        }
 
         if (error) throw error;
 
@@ -1404,6 +1473,23 @@ async function loadMatches() {
         return;
     }
 
+    // Verificar que Supabase esté disponible
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error de conexión</h3>
+                <p>No se pudo conectar con la base de datos. Por favor, recarga la página.</p>
+                <button class="btn btn-primary btn-small" onclick="location.reload()" style="margin-top: 12px;">
+                    <i class="fas fa-redo"></i> Recargar
+                </button>
+            </div>
+        `;
+        console.error('❌ Supabase no está disponible');
+        return;
+    }
+
     // Obtener liga seleccionada
     const ligaSelect = document.getElementById('pronosticos-liga-select');
     if (!ligaSelect) {
@@ -1439,11 +1525,17 @@ async function loadMatches() {
     `;
 
     try {
-        const { data: matches, error } = await supabase
-            .from('matches')
-            .select('*')
-            .eq('jornada', currentJornada)
-            .order('match_date', { ascending: true });
+        // Ejecutar consulta con timeout usando la función auxiliar
+        const result = await executeQueryWithTimeout(() => 
+            supabase
+                .from('matches')
+                .select('*')
+                .eq('jornada', currentJornada)
+                .order('match_date', { ascending: true })
+        , 10000);
+        
+        const matches = result.data;
+        const error = result.error;
 
         console.log('📦 Resultado consulta matches:', { matches, error, count: matches?.length });
 
@@ -1519,44 +1611,48 @@ async function loadUserPredictions(ligaId = null) {
         return;
     }
 
+    // Verificar que Supabase esté disponible
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        console.error('❌ Supabase no está disponible para cargar predicciones');
+        userPredictions = {};
+        return;
+    }
+
     console.log('📥 Cargando predicciones para usuario:', currentUser.id, 'liga:', ligaId);
 
     try {
-        let query = supabase
-            .from('predictions')
-            .select('*')
-            .eq('user_id', currentUser.id);
-
-        // Si la columna liga_id existe, filtrar por ella
-        // Si no existe (migración pendiente), cargar todas (compatibilidad hacia atrás)
-        query = query.eq('liga_id', ligaId);
-
-        const { data, error } = await query;
+        // Ejecutar consulta con timeout
+        let result;
+        try {
+            result = await executeQueryWithTimeout(() => 
+                supabase
+                    .from('predictions')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .eq('liga_id', ligaId)
+            , 8000);
+        } catch (queryError) {
+            // Si el error es que la columna liga_id no existe, intentar sin filtrar
+            if (queryError.message && queryError.message.includes('liga_id')) {
+                console.warn('⚠️ Columna liga_id no existe aún, cargando todas las predicciones');
+                result = await executeQueryWithTimeout(() => 
+                    supabase
+                        .from('predictions')
+                        .select('*')
+                        .eq('user_id', currentUser.id)
+                , 8000);
+            } else {
+                throw queryError;
+            }
+        }
+        
+        const data = result.data;
+        const error = result.error;
 
         console.log('📦 Predicciones desde Supabase:', data);
 
-        if (error) {
-            // Si el error es que la columna no existe, intentar sin filtrar (compatibilidad)
-            if (error.message && error.message.includes('liga_id')) {
-                console.warn('⚠️ Columna liga_id no existe aún, cargando todas las predicciones');
-                const { data: allData, error: allError } = await supabase
-                    .from('predictions')
-                    .select('*')
-                    .eq('user_id', currentUser.id);
-                
-                if (allError) throw allError;
-                
-                // Convertir a objeto
-                userPredictions = {};
-                if (allData && allData.length > 0) {
-                    allData.forEach(pred => {
-                        userPredictions[pred.match_id] = pred;
-                    });
-                }
-                return;
-            }
-            throw error;
-        }
+        if (error) throw error;
 
         // Convertir a objeto para fácil acceso
         userPredictions = {};
@@ -2098,23 +2194,55 @@ async function loadLigasForSelect() {
 }
 
 async function loadLigaClassification() {
-    const ligaId = document.getElementById('liga-select').value;
+    const ligaId = document.getElementById('liga-select')?.value;
     const container = document.getElementById('liga-leaderboard');
+    
+    if (!container) {
+        console.error('❌ Contenedor de clasificación no encontrado');
+        return;
+    }
     
     if (!ligaId) {
         container.innerHTML = '';
         return;
     }
 
+    // Verificar que Supabase esté disponible
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error de conexión</h3>
+                <p>No se pudo conectar con la base de datos. Por favor, recarga la página.</p>
+            </div>
+        `;
+        return;
+    }
+
     container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
 
     try {
-        // Obtener miembros de la liga con sus puntos
-        const { data, error } = await supabase
+        // Añadir timeout a la consulta
+        const queryPromise = supabase
             .from('liga_members')
             .select('user_id, users(id, name, total_points)')
-            .eq('liga_id', ligaId)
-            .order('users(total_points)', { ascending: false });
+            .eq('liga_id', ligaId);
+        
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout: La consulta tardó más de 10 segundos')), 10000)
+        );
+        
+        let data, error;
+        try {
+            const result = await Promise.race([queryPromise, timeoutPromise]);
+            data = result.data;
+            error = result.error;
+        } catch (timeoutError) {
+            throw timeoutError;
+        }
+        
+        // Ordenar por puntos (ya que Supabase no ordena bien con relaciones)
 
         if (error) throw error;
 
