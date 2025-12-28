@@ -3135,16 +3135,35 @@ async function addMatch(event) {
     event.preventDefault();
     console.log('📝 Añadiendo partido...');
 
-    const jornada = document.getElementById('match-jornada').value;
-    const matchDate = document.getElementById('match-datetime').value;
-    const homeTeam = document.getElementById('match-home').value;
-    const awayTeam = document.getElementById('match-away').value;
+    // Verificar que Supabase esté disponible
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        showNotification('Error: No se pudo conectar con la base de datos. Por favor, recarga la página.', 'error');
+        console.error('❌ Supabase no está disponible');
+        return;
+    }
 
-    console.log('Datos:', { jornada, matchDate, homeTeam, awayTeam });
+    const jornadaEl = document.getElementById('match-jornada');
+    const matchDateEl = document.getElementById('match-datetime');
+    const homeTeamEl = document.getElementById('match-home');
+    const awayTeamEl = document.getElementById('match-away');
+
+    if (!jornadaEl || !matchDateEl || !homeTeamEl || !awayTeamEl) {
+        showNotification('Error: No se encontraron los campos del formulario', 'error');
+        console.error('❌ Elementos del formulario no encontrados');
+        return;
+    }
+
+    const jornada = jornadaEl.value.trim();
+    const matchDate = matchDateEl.value.trim();
+    const homeTeam = homeTeamEl.value.trim();
+    const awayTeam = awayTeamEl.value.trim();
+
+    console.log('Datos del formulario:', { jornada, matchDate, homeTeam, awayTeam });
 
     // Validaciones
     if (!jornada || !matchDate || !homeTeam || !awayTeam) {
-        showNotification('Rellena todos los campos', 'error');
+        showNotification('Por favor, rellena todos los campos', 'error');
         console.error('❌ Campos vacíos');
         return;
     }
@@ -3154,27 +3173,68 @@ async function addMatch(event) {
         return;
     }
 
+    // Convertir fecha de datetime-local a formato ISO para Supabase
+    let matchDateISO;
     try {
-        const { data, error } = await supabase
-            .from('matches')
-            .insert({
-                jornada: parseInt(jornada),
-                match_date: matchDate,
-                home_team: homeTeam,
-                away_team: awayTeam
-            })
-            .select();
+        // datetime-local devuelve formato: YYYY-MM-DDTHH:mm
+        // Necesitamos convertirlo a ISO 8601 para Supabase
+        const dateObj = new Date(matchDate);
+        if (isNaN(dateObj.getTime())) {
+            throw new Error('Fecha inválida');
+        }
+        matchDateISO = dateObj.toISOString();
+        console.log('Fecha convertida a ISO:', matchDateISO);
+    } catch (dateError) {
+        showNotification('Error: La fecha introducida no es válida', 'error');
+        console.error('❌ Error al procesar la fecha:', dateError);
+        return;
+    }
+
+    try {
+        console.log('Insertando partido en Supabase...');
+        
+        const { data, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('matches')
+                .insert({
+                    jornada: parseInt(jornada),
+                    match_date: matchDateISO,
+                    home_team: homeTeam,
+                    away_team: awayTeam,
+                    home_score: null,
+                    away_score: null
+                })
+                .select()
+        , 10000);
 
         console.log('Resultado insert:', { data, error });
 
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Error de Supabase:', error);
+            throw error;
+        }
+
+        if (!data || data.length === 0) {
+            throw new Error('No se creó el partido. Verifica los datos.');
+        }
 
         showNotification('✅ Partido añadido correctamente', 'success');
-        document.getElementById('add-match-form').reset();
-        loadAdminMatches();
+        
+        // Resetear formulario
+        const form = document.getElementById('add-match-form');
+        if (form) {
+            form.reset();
+        }
+        
+        // Recargar lista de partidos
+        if (typeof loadAdminMatches === 'function') {
+            loadAdminMatches();
+        }
+        
     } catch (error) {
         console.error('❌ Error añadiendo partido:', error);
-        showNotification('Error al añadir el partido: ' + error.message, 'error');
+        const errorMessage = error.message || 'Error desconocido al añadir el partido';
+        showNotification('Error al añadir el partido: ' + errorMessage, 'error');
     }
 }
 
