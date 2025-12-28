@@ -2054,14 +2054,16 @@ async function loadMatches() {
             return;
         }
 
-        // Cargar predicciones del usuario para esta liga
+        // Cargar predicciones del usuario para esta liga ANTES de renderizar
         try {
             await loadUserPredictions(ligaId);
+            console.log('✅ Predicciones cargadas antes de renderizar:', Object.keys(userPredictions).length);
         } catch (predError) {
             console.warn('⚠️ Error cargando predicciones, continuando sin ellas:', predError);
+            userPredictions = {}; // Asegurar que esté inicializado
         }
 
-        console.log('🎯 Renderizando', matches.length, 'partidos');
+        console.log('🎯 Renderizando', matches.length, 'partidos con predicciones:', Object.keys(userPredictions).length);
         
         // Header de la tabla
         const tableHeader = `
@@ -2079,6 +2081,25 @@ async function loadMatches() {
         
         container.innerHTML = tableHeader + matches.map(match => createMatchCard(match)).join('');
         console.log('✅ Partidos renderizados');
+        
+        // Verificar que las predicciones se aplicaron correctamente
+        let appliedCount = 0;
+        matches.forEach(match => {
+            const homeSelect = document.getElementById(`home-${match.id}`);
+            const awaySelect = document.getElementById(`away-${match.id}`);
+            const prediction = userPredictions[match.id];
+            if (prediction && homeSelect && awaySelect) {
+                if (homeSelect.value == prediction.home_prediction && awaySelect.value == prediction.away_prediction) {
+                    appliedCount++;
+                } else {
+                    console.warn(`⚠️ Predicción no aplicada para partido ${match.id}:`, {
+                        saved: `${prediction.home_prediction}-${prediction.away_prediction}`,
+                        shown: `${homeSelect.value}-${awaySelect.value}`
+                    });
+                }
+            }
+        });
+        console.log(`✅ Predicciones aplicadas correctamente: ${appliedCount}/${Object.keys(userPredictions).length}`);
         
         // Iniciar actualizaciones en vivo (si la función está disponible)
         if (typeof window !== 'undefined' && window.startLiveUpdates) {
@@ -2120,7 +2141,10 @@ async function loadUserPredictions(ligaId = null) {
         return;
     }
 
-    console.log('📥 Cargando predicciones para usuario:', currentUser.id, 'liga:', ligaId);
+    // Convertir ligaId a número si es string
+    const ligaIdNum = typeof ligaId === 'string' ? parseInt(ligaId) : ligaId;
+    
+    console.log('📥 Cargando predicciones para usuario:', currentUser.id, 'liga:', ligaIdNum, '(tipo:', typeof ligaIdNum, ')');
 
     try {
         // Ejecutar consulta con timeout
@@ -2131,18 +2155,30 @@ async function loadUserPredictions(ligaId = null) {
                     .from('predictions')
                     .select('*')
                     .eq('user_id', currentUser.id)
-                    .eq('liga_id', ligaId)
+                    .eq('liga_id', ligaIdNum)
             , 8000);
         } catch (queryError) {
             // Si el error es que la columna liga_id no existe, intentar sin filtrar
-            if (queryError.message && queryError.message.includes('liga_id')) {
-                console.warn('⚠️ Columna liga_id no existe aún, cargando todas las predicciones');
+            if (queryError.message && (queryError.message.includes('liga_id') || queryError.message.includes('column'))) {
+                console.warn('⚠️ Problema con columna liga_id, cargando todas las predicciones y filtrando en memoria');
                 result = await executeQueryWithTimeout(() => 
                     supabase
                         .from('predictions')
                         .select('*')
                         .eq('user_id', currentUser.id)
                 , 8000);
+                
+                // Filtrar en memoria si es necesario
+                if (result.data) {
+                    result.data = result.data.filter(pred => {
+                        // Si la predicción tiene liga_id, comparar; si no, incluir todas (compatibilidad)
+                        if (pred.liga_id !== undefined && pred.liga_id !== null) {
+                            return parseInt(pred.liga_id) === ligaIdNum;
+                        }
+                        // Si no tiene liga_id, incluirla (predicciones antiguas sin liga_id)
+                        return true;
+                    });
+                }
             } else {
                 throw queryError;
             }
@@ -2159,8 +2195,13 @@ async function loadUserPredictions(ligaId = null) {
         userPredictions = {};
         if (data && data.length > 0) {
             data.forEach(pred => {
-                userPredictions[pred.match_id] = pred;
-                console.log(`  Partido ${pred.match_id}: ${pred.home_prediction} - ${pred.away_prediction}`);
+                // Asegurar que los valores de predicción sean números
+                userPredictions[pred.match_id] = {
+                    ...pred,
+                    home_prediction: pred.home_prediction !== null && pred.home_prediction !== undefined ? parseInt(pred.home_prediction) : null,
+                    away_prediction: pred.away_prediction !== null && pred.away_prediction !== undefined ? parseInt(pred.away_prediction) : null
+                };
+                console.log(`  Partido ${pred.match_id}: ${userPredictions[pred.match_id].home_prediction} - ${userPredictions[pred.match_id].away_prediction} (liga: ${pred.liga_id || 'N/A'})`);
             });
         } else {
             console.log('  (Sin predicciones guardadas para esta liga)');
@@ -2404,9 +2445,11 @@ async function savePredictions() {
 
         showNotification(`¡${predictions.length} pronósticos guardados!`, 'success');
         
-        // Recargar predicciones y actualizar progreso
-        await loadUserPredictions();
-        await loadProgress();
+        // Recargar predicciones con la liga correcta
+        await loadUserPredictions(ligaId);
+        
+        // Recargar los partidos para mostrar los valores guardados
+        await loadMatches();
         
         // Quitar indicador de cambios
         matchRows.forEach(row => {
