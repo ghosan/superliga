@@ -947,11 +947,11 @@ async function loadDashboardJornada() {
 
         const activeJornada = configData?.value || 1;
 
-        // Obtener partidos de la jornada activa
+        // Obtener partidos de la jornada activa (incluyendo resultados)
         const { data: matches, error: matchesError } = await executeQueryWithTimeout(() =>
             supabase
                 .from('matches')
-                .select('id, home_team, away_team, match_date, jornada')
+                .select('id, home_team, away_team, match_date, jornada, home_score, away_score')
                 .eq('jornada', activeJornada)
                 .order('match_date', { ascending: true })
                 .limit(4)
@@ -994,7 +994,7 @@ async function loadDashboardJornada() {
             `;
         }
 
-        // Mostrar próximos partidos
+        // Mostrar partidos de la jornada con resultados
         const matchesEl = document.getElementById('dashboard-next-matches');
         if (matchesEl && matches && matches.length > 0) {
             matchesEl.innerHTML = matches.slice(0, 4).map(match => {
@@ -1003,18 +1003,28 @@ async function loadDashboardJornada() {
                 const dateStr = matchDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
                 const timeStr = matchDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
                 
+                // Verificar si el partido tiene resultado
+                const hasResult = match.home_score !== null && match.away_score !== null;
+                const isFinished = hasResult;
+                
                 return `
-                    <div class="next-match-item ${prediction ? 'has-prediction' : ''}">
+                    <div class="next-match-item ${prediction ? 'has-prediction' : ''} ${isFinished ? 'finished' : ''}">
                         <div class="match-teams">
                             <span class="team-name">${match.home_team}</span>
-                            <span class="vs">vs</span>
+                            ${hasResult ? 
+                                `<span class="match-result"><strong>${match.home_score} - ${match.away_score}</strong></span>` :
+                                `<span class="vs">vs</span>`
+                            }
                             <span class="team-name">${match.away_team}</span>
                         </div>
                         <div class="match-info">
                             <span class="match-date">${dateStr} ${timeStr}</span>
-                            ${prediction ? 
-                                `<span class="prediction-badge"><i class="fas fa-check"></i> ${prediction.home_prediction}-${prediction.away_prediction}</span>` :
-                                `<span class="pending-badge"><i class="fas fa-clock"></i> Pendiente</span>`
+                            ${hasResult ? 
+                                `<span class="result-badge finished"><i class="fas fa-check-circle"></i> Finalizado</span>` :
+                                (prediction ? 
+                                    `<span class="prediction-badge"><i class="fas fa-check"></i> Tu pronóstico: ${prediction.home_prediction}-${prediction.away_prediction}</span>` :
+                                    '<span class="pending-badge"><i class="fas fa-clock"></i> Pendiente</span>'
+                                )
                             }
                         </div>
                     </div>
