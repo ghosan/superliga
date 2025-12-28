@@ -2272,6 +2272,145 @@ body {
     font-weight: 600;
 }
 
+/* ========================================
+   SECCIÓN REGLAS
+   ======================================== */
+.rules-content-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding: 20px 0;
+}
+
+.rules-card {
+    background: white;
+    border-radius: var(--rounded-xl);
+    padding: 28px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--slate-100);
+}
+
+.rules-card h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--slate-900);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.rules-card h3 i {
+    color: var(--blue-600);
+    font-size: 1.3rem;
+}
+
+.rules-card p {
+    font-size: 0.938rem;
+    color: var(--slate-700);
+    line-height: 1.7;
+    margin-bottom: 12px;
+}
+
+.rules-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 16px 0;
+}
+
+.rules-card ul li {
+    font-size: 0.938rem;
+    color: var(--slate-700);
+    padding: 8px 0 8px 24px;
+    position: relative;
+    line-height: 1.6;
+}
+
+.rules-card ul li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--blue-600);
+    font-weight: 700;
+    font-size: 1rem;
+}
+
+.scoring-table {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.scoring-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    background: var(--slate-50);
+    border-radius: var(--rounded-lg);
+    border: 1px solid var(--slate-200);
+    transition: var(--transition);
+}
+
+.scoring-item:hover {
+    background: var(--blue-50);
+    border-color: var(--blue-200);
+}
+
+.scoring-item.highlighted {
+    background: var(--blue-100);
+    border: 2px solid var(--blue-400);
+    font-weight: 600;
+}
+
+.scoring-label {
+    font-size: 0.938rem;
+    color: var(--slate-800);
+    font-weight: 500;
+}
+
+.scoring-points {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--blue-600);
+}
+
+.scoring-item.highlighted .scoring-points {
+    color: var(--blue-800);
+    font-size: 1.125rem;
+}
+
+.max-points {
+    font-size: 1.25rem;
+    text-align: center;
+    padding: 20px;
+    background: var(--blue-50);
+    border-radius: var(--rounded-lg);
+    border: 2px solid var(--blue-300);
+}
+
+.max-points strong {
+    color: var(--blue-900);
+    font-size: 1.5rem;
+    display: block;
+    margin-top: 8px;
+}
+
+/* ========================================
+   SECCIÓN NOTICIAS
+   ======================================== */
+.noticias-container {
+    padding: 20px 0;
+}
+
+/* ========================================
+   SECCIÓN ESTADÍSTICAS
+   ======================================== */
+.estadisticas-container {
+    padding: 20px 0;
+}
+
 .user-avatar-small img {
     width: 100%;
     height: 100%;

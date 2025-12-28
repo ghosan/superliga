@@ -313,6 +313,15 @@ export default function Home() {
             <a href="#" className="nav-link" data-page="ligas">
               <i className="fas fa-users"></i> Mis Ligas
             </a>
+            <a href="#" className="nav-link" data-page="reglas">
+              <i className="fas fa-book"></i> Reglas
+            </a>
+            <a href="#" className="nav-link" data-page="noticias">
+              <i className="fas fa-newspaper"></i> Noticias
+            </a>
+            <a href="#" className="nav-link" data-page="estadisticas">
+              <i className="fas fa-chart-bar"></i> Estadísticas
+            </a>
             <a href="#" className="nav-link admin-link" data-page="admin" id="admin-nav-link" style={{display: 'none'}}>
               <i className="fas fa-cog"></i> Admin
             </a>
@@ -480,6 +489,98 @@ export default function Home() {
             
             <div className="ligas-container" id="ligas-container">
               {/* Las ligas se cargan dinámicamente */}
+            </div>
+          </section>
+
+          {/* Sección Reglas */}
+          <section id="reglas-section" className="section">
+            <div className="section-header">
+              <h2><i className="fas fa-book"></i> Reglas del Juego</h2>
+            </div>
+            
+            <div className="rules-content-page">
+              <div className="rules-card">
+                <h3><i className="fas fa-info-circle"></i> El Juego</h3>
+                <p>Con SuperLiga podrás pronosticar el resultado de todos los partidos de LaLiga 2025-2026. Puedes crear o unirte a ligas para competir con amigos, familiares o compañeros de trabajo.</p>
+              </div>
+              
+              <div className="rules-card">
+                <h3><i className="fas fa-play-circle"></i> Cómo Jugar</h3>
+                <p>Al crear una cuenta, participas automáticamente en el juego. Podrás hacer cambios en tus pronósticos hasta que comience cada partido.</p>
+                <ul>
+                  <li>Selecciona una liga en la que participes</li>
+                  <li>Elige la jornada que quieres pronosticar</li>
+                  <li>Introduce el resultado que crees que tendrá cada partido</li>
+                  <li>Guarda tus pronósticos antes de que comiencen los partidos</li>
+                </ul>
+              </div>
+              
+              <div className="rules-card">
+                <h3><i className="fas fa-trophy"></i> Sistema de Puntuación</h3>
+                <p>El resultado considerado es el marcador al final de los 90 minutos (prórroga y penaltis no cuentan).</p>
+                <div className="scoring-table">
+                  <div className="scoring-item">
+                    <span className="scoring-label">Acertar 1X2</span>
+                    <span className="scoring-points">48 puntos</span>
+                  </div>
+                  <div className="scoring-item">
+                    <span className="scoring-label">Goles local exactos</span>
+                    <span className="scoring-points">15 puntos</span>
+                  </div>
+                  <div className="scoring-item">
+                    <span className="scoring-label">Goles visitante exactos</span>
+                    <span className="scoring-points">15 puntos</span>
+                  </div>
+                  <div className="scoring-item">
+                    <span className="scoring-label">Diferencia de goles</span>
+                    <span className="scoring-points">12 puntos</span>
+                  </div>
+                  <div className="scoring-item highlighted">
+                    <span className="scoring-label">Máximo por partido</span>
+                    <span className="scoring-points">90 puntos</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="rules-card">
+                <h3><i className="fas fa-medal"></i> Clasificaciones</h3>
+                <p>Compites individualmente contra todos los miembros de tu liga. Para competir en la clasificación de liga, esta debe tener al menos 3 miembros.</p>
+              </div>
+              
+              <div className="rules-card">
+                <h3><i className="fas fa-calculator"></i> Máximo de Puntos por Temporada</h3>
+                <p className="max-points">380 partidos × 90 puntos = <strong>34.200 puntos</strong></p>
+              </div>
+            </div>
+          </section>
+
+          {/* Sección Noticias */}
+          <section id="noticias-section" className="section">
+            <div className="section-header">
+              <h2><i className="fas fa-newspaper"></i> Noticias</h2>
+            </div>
+            
+            <div className="noticias-container">
+              <div className="empty-state">
+                <i className="fas fa-newspaper"></i>
+                <h3>Próximamente</h3>
+                <p>Las noticias estarán disponibles próximamente.</p>
+              </div>
+            </div>
+          </section>
+
+          {/* Sección Estadísticas */}
+          <section id="estadisticas-section" className="section">
+            <div className="section-header">
+              <h2><i className="fas fa-chart-bar"></i> Estadísticas</h2>
+            </div>
+            
+            <div className="estadisticas-container">
+              <div className="empty-state">
+                <i className="fas fa-chart-bar"></i>
+                <h3>Próximamente</h3>
+                <p>Las estadísticas estarán disponibles próximamente.</p>
+              </div>
             </div>
           </section>
 

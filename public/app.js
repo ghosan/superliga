@@ -1357,6 +1357,12 @@ function setupNavigation() {
                 loadLigasForSelect();
             } else if (page === 'ligas') {
                 loadUserLigas();
+            } else if (page === 'reglas') {
+                // No requiere carga de datos, solo mostrar contenido estático
+            } else if (page === 'noticias') {
+                // Cargar noticias si es necesario en el futuro
+            } else if (page === 'estadisticas') {
+                // Cargar estadísticas si es necesario en el futuro
             } else if (page === 'admin') {
                 loadAdminData();
             }
