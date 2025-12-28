@@ -2199,9 +2199,39 @@ async function loadUserPredictions(ligaId = null) {
 
 function createMatchCard(match) {
     const prediction = userPredictions[match.id] || {};
-    const matchDate = new Date(match.match_date);
+    
+    // Asegurar que la fecha se parsea correctamente
+    let matchDate;
+    try {
+        matchDate = new Date(match.match_date);
+        // Si la fecha no es válida, intentar parsear como string ISO
+        if (isNaN(matchDate.getTime())) {
+            console.warn(`⚠️ Fecha inválida para partido ${match.id}: ${match.match_date}`);
+            matchDate = new Date(match.match_date + 'Z'); // Intentar añadir Z para UTC
+        }
+        if (isNaN(matchDate.getTime())) {
+            console.error(`❌ No se pudo parsear la fecha del partido ${match.id}`);
+            matchDate = new Date(); // Usar fecha actual como fallback
+        }
+    } catch (e) {
+        console.error(`❌ Error parseando fecha del partido ${match.id}:`, e);
+        matchDate = new Date();
+    }
+    
     const now = new Date();
-    const isLocked = matchDate < now;
+    
+    // Bloquear partidos que ya han empezado (fecha y hora han pasado)
+    // Usar comparación directa de timestamps para mayor precisión
+    // Permitir pronósticos hasta que la fecha/hora del partido haya pasado
+    // Añadir un pequeño margen (1 minuto) para evitar problemas de precisión
+    const matchTimestamp = matchDate.getTime();
+    const nowTimestamp = now.getTime();
+    const oneMinute = 60 * 1000; // 1 minuto en milisegundos
+    
+    // Bloquear si la fecha/hora del partido ya pasó (con margen de 1 minuto)
+    const isLocked = matchTimestamp <= (nowTimestamp - oneMinute);
+    
+    // Un partido está finalizado si tiene resultados
     const isFinished = match.home_score !== null && match.away_score !== null;
 
     let pointsEarned = null;
@@ -2253,7 +2283,7 @@ function createMatchCard(match) {
             <span class="col-goles">
                 <select class="goal-select ${prediction.home_prediction !== undefined && prediction.home_prediction !== null ? 'has-value' : ''}" 
                         id="home-${match.id}" 
-                        ${isLocked ? 'disabled' : ''} 
+                        ${isLocked ? 'disabled title="Este partido ya ha comenzado. No se pueden modificar los pronósticos."' : 'title="Selecciona goles del equipo local"'} 
                         onchange="markPredictionChanged(${match.id})">
                     ${generateScoreOptions(prediction.home_prediction)}
                 </select>
@@ -2261,7 +2291,7 @@ function createMatchCard(match) {
             <span class="col-goles">
                 <select class="goal-select ${prediction.away_prediction !== undefined && prediction.away_prediction !== null ? 'has-value' : ''}" 
                         id="away-${match.id}" 
-                        ${isLocked ? 'disabled' : ''} 
+                        ${isLocked ? 'disabled title="Este partido ya ha comenzado. No se pueden modificar los pronósticos."' : 'title="Selecciona goles del equipo visitante"'} 
                         onchange="markPredictionChanged(${match.id})">
                     ${generateScoreOptions(prediction.away_prediction)}
                 </select>
@@ -2271,7 +2301,7 @@ function createMatchCard(match) {
                 ${isFinished ? `
                     <span class="result-final">${match.home_score} - ${match.away_score}</span>
                     ${pointsEarned !== null ? `<span class="result-points">${pointsEarned}pts</span>` : ''}
-                ` : '-'}
+                ` : (isLocked ? '<span class="locked-badge" title="Partido bloqueado"><i class="fas fa-lock"></i></span>' : '-')}
             </span>
         </div>
     `;
