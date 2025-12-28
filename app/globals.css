@@ -712,32 +712,590 @@ body {
 /* ========================================
    DASHBOARD PRINCIPAL
    ======================================== */
-.dashboard-welcome {
+/* ========================================
+   NUEVO DASHBOARD HÍBRIDO
+   ======================================== */
+
+/* Header con Resumen */
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
     margin-bottom: 32px;
+    flex-wrap: wrap;
 }
 
-.dashboard-welcome h1 {
+.dashboard-welcome-main {
+    flex: 1;
+    min-width: 200px;
+}
+
+.dashboard-welcome-main h1 {
     font-size: 2rem;
     font-weight: 800;
     color: var(--slate-900);
+    margin-bottom: 12px;
+}
+
+.dashboard-welcome-main h1 span {
+    color: var(--blue-600);
+}
+
+.dashboard-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--slate-100);
+    border-radius: var(--rounded-full);
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--slate-700);
+    margin-top: 8px;
+}
+
+.dashboard-badge.badge-gold {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: white;
+}
+
+.dashboard-badge.badge-silver {
+    background: linear-gradient(135deg, #94a3b8, #64748b);
+    color: white;
+}
+
+.dashboard-badge.badge-bronze {
+    background: linear-gradient(135deg, #d97706, #b45309);
+    color: white;
+}
+
+.dashboard-badge i {
+    font-size: 1rem;
+}
+
+.dashboard-summary-card {
+    background: linear-gradient(135deg, var(--blue-600), var(--indigo-600));
+    border-radius: var(--rounded-xl);
+    padding: 24px 32px;
+    color: white;
+    min-width: 280px;
+    box-shadow: var(--shadow-lg);
+}
+
+.summary-main {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 16px;
+}
+
+.summary-label {
+    font-size: 0.875rem;
+    opacity: 0.9;
     margin-bottom: 8px;
 }
 
-.dashboard-welcome h1 span {
-    color: var(--primary-600);
+.summary-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    line-height: 1;
 }
 
-.dashboard-subtitle {
-    font-size: 1rem;
-    color: var(--slate-500);
-}
-
-/* Grid de tarjetas de ligas */
-.dashboard-ligas-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+.summary-secondary {
+    display: flex;
     gap: 24px;
-    margin-bottom: 40px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.summary-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
+
+.summary-item i {
+    font-size: 1rem;
+}
+
+/* Grid de 3 Columnas */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.dashboard-column {
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard-card {
+    background: white;
+    border-radius: var(--rounded-xl);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard-card-header {
+    padding: 20px 24px;
+    background: var(--slate-50);
+    border-bottom: 1px solid var(--slate-200);
+}
+
+.dashboard-card-header h3 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--slate-900);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dashboard-card-header h3 i {
+    color: var(--blue-600);
+    font-size: 1.2rem;
+}
+
+.dashboard-card-content {
+    padding: 24px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Estadísticas */
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--slate-100);
+}
+
+.stat-item:last-of-type {
+    border-bottom: none;
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--blue-50);
+    border-radius: var(--rounded-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.stat-icon i {
+    font-size: 1.25rem;
+    color: var(--blue-600);
+}
+
+.stat-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-label {
+    font-size: 0.813rem;
+    color: var(--slate-600);
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--slate-900);
+}
+
+/* Gráfico de Jornadas */
+.stat-chart {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--slate-100);
+}
+
+.chart-container {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    height: 120px;
+    gap: 8px;
+}
+
+.chart-bar-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+}
+
+.chart-bar {
+    width: 100%;
+    max-width: 40px;
+    background: linear-gradient(to top, var(--blue-500), var(--blue-400));
+    border-radius: var(--rounded) var(--rounded) 0 0;
+    position: relative;
+    min-height: 20px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 4px;
+    transition: var(--transition);
+}
+
+.chart-bar:hover {
+    background: linear-gradient(to top, var(--blue-600), var(--blue-500));
+    transform: scaleY(1.05);
+}
+
+.chart-value {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.chart-label {
+    font-size: 0.75rem;
+    color: var(--slate-600);
+    margin-top: 8px;
+    font-weight: 500;
+}
+
+/* Jornada Actual */
+.jornada-status {
+    margin-bottom: 20px;
+}
+
+.jornada-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 12px;
+    background: var(--slate-200);
+    border-radius: var(--rounded-full);
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--blue-500), var(--blue-600));
+    border-radius: var(--rounded-full);
+    transition: width 0.3s ease;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.875rem;
+    color: var(--slate-700);
+}
+
+.pending-text {
+    color: var(--amber-600);
+    font-weight: 600;
+}
+
+.next-matches {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.next-match-item {
+    padding: 12px;
+    background: var(--slate-50);
+    border-radius: var(--rounded-lg);
+    border: 1px solid var(--slate-200);
+    transition: var(--transition);
+}
+
+.next-match-item.has-prediction {
+    border-color: var(--blue-300);
+    background: var(--blue-50);
+}
+
+.match-teams {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 0.875rem;
+}
+
+.team-name {
+    flex: 1;
+    font-weight: 600;
+    color: var(--slate-900);
+    text-align: left;
+}
+
+.team-name:last-child {
+    text-align: right;
+}
+
+.vs {
+    font-size: 0.75rem;
+    color: var(--slate-500);
+    font-weight: 500;
+}
+
+.match-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.75rem;
+}
+
+.match-date {
+    color: var(--slate-600);
+}
+
+.prediction-badge, .pending-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: var(--rounded);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.prediction-badge {
+    background: var(--blue-100);
+    color: var(--blue-700);
+}
+
+.pending-badge {
+    background: var(--amber-100);
+    color: var(--amber-700);
+}
+
+/* Top Ligas */
+#dashboard-top-ligas {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+}
+
+.liga-item {
+    padding: 16px;
+    background: var(--slate-50);
+    border-radius: var(--rounded-lg);
+    border: 1px solid var(--slate-200);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.liga-item:hover {
+    background: var(--blue-50);
+    border-color: var(--blue-300);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.liga-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.liga-item-header h4 {
+    font-size: 0.938rem;
+    font-weight: 600;
+    color: var(--slate-900);
+    margin: 0;
+}
+
+.liga-position-badge {
+    padding: 4px 10px;
+    border-radius: var(--rounded-full);
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: var(--slate-200);
+    color: var(--slate-700);
+}
+
+.liga-position-badge.gold {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: white;
+}
+
+.liga-position-badge.silver {
+    background: linear-gradient(135deg, #94a3b8, #64748b);
+    color: white;
+}
+
+.liga-position-badge.bronze {
+    background: linear-gradient(135deg, #d97706, #b45309);
+    color: white;
+}
+
+.liga-item-stats {
+    display: flex;
+    gap: 16px;
+}
+
+.liga-stat-small {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.813rem;
+    color: var(--slate-600);
+}
+
+.liga-stat-small i {
+    color: var(--blue-600);
+}
+
+.dashboard-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    color: var(--blue-600);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: var(--transition);
+}
+
+.dashboard-link:hover {
+    color: var(--blue-700);
+    gap: 12px;
+}
+
+/* Actividad Reciente */
+.dashboard-activity {
+    margin-top: 32px;
+}
+
+.activity-item {
+    padding: 16px;
+    border-bottom: 1px solid var(--slate-100);
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-item.has-result {
+    background: var(--slate-50);
+}
+
+.activity-match {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.activity-teams {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--slate-800);
+}
+
+.activity-score {
+    font-weight: 700;
+    color: var(--blue-600);
+    padding: 2px 8px;
+    background: var(--blue-50);
+    border-radius: var(--rounded);
+}
+
+.activity-info {
+    display: flex;
+    gap: 16px;
+    font-size: 0.75rem;
+    color: var(--slate-600);
+    flex-wrap: wrap;
+}
+
+.activity-jornada {
+    font-weight: 600;
+    color: var(--slate-700);
+}
+
+.activity-result {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.activity-points {
+    font-weight: 700;
+    color: var(--green-600);
+}
+
+.activity-status {
+    color: var(--amber-600);
+    font-weight: 600;
+}
+
+.no-data {
+    text-align: center;
+    color: var(--slate-500);
+    font-size: 0.875rem;
+    padding: 20px;
+    font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .dashboard-header {
+        flex-direction: column;
+    }
+    
+    .dashboard-summary-card {
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-welcome-main h1 {
+        font-size: 1.5rem;
+    }
+    
+    .summary-value {
+        font-size: 2rem;
+    }
+    
+    .summary-secondary {
+        flex-direction: column;
+        gap: 12px;
+    }
 }
 
 .liga-card-dashboard {

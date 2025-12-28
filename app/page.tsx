@@ -352,14 +352,129 @@ export default function Home() {
         <main className="dashboard-content">
           {/* Sección Dashboard Principal */}
           <section id="dashboard-section" className="section active">
-            <div className="dashboard-welcome">
-              <h1>¡Bienvenido, <span id="dashboard-user-name">Usuario</span>!</h1>
-              <p className="dashboard-subtitle">Selecciona una liga para ver su clasificación</p>
+            {/* Header con Resumen */}
+            <div className="dashboard-header">
+              <div className="dashboard-welcome-main">
+                <h1>¡Hola, <span id="dashboard-user-name">Usuario</span>!</h1>
+                <div className="dashboard-badge" id="dashboard-badge">
+                  <i className="fas fa-trophy"></i>
+                  <span>Bienvenido</span>
+                </div>
+              </div>
+              <div className="dashboard-summary-card">
+                <div className="summary-main">
+                  <span className="summary-label">Puntos Totales</span>
+                  <span className="summary-value" id="dashboard-total-points">0</span>
+                </div>
+                <div className="summary-secondary">
+                  <div className="summary-item">
+                    <i className="fas fa-chart-line"></i>
+                    <span id="dashboard-position">-</span>
+                  </div>
+                  <div className="summary-item">
+                    <i className="fas fa-calendar-check"></i>
+                    <span id="dashboard-jornada-info">Jornada 0</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Tarjetas de Ligas */}
-            <div id="dashboard-ligas-grid" className="dashboard-ligas-grid">
-              {/* Se cargan dinámicamente */}
+            {/* Grid de 3 Columnas */}
+            <div className="dashboard-grid">
+              {/* Columna 1: Estadísticas */}
+              <div className="dashboard-column">
+                <div className="dashboard-card">
+                  <div className="dashboard-card-header">
+                    <h3><i className="fas fa-chart-bar"></i> Estadísticas</h3>
+                  </div>
+                  <div className="dashboard-card-content">
+                    <div className="stat-item">
+                      <div className="stat-icon"><i className="fas fa-futbol"></i></div>
+                      <div className="stat-info">
+                        <span className="stat-label">Partidos Pronosticados</span>
+                        <span className="stat-value" id="dashboard-predicted-matches">0</span>
+                      </div>
+                    </div>
+                    <div className="stat-item">
+                      <div className="stat-icon"><i className="fas fa-percentage"></i></div>
+                      <div className="stat-info">
+                        <span className="stat-label">Promedio por Partido</span>
+                        <span className="stat-value" id="dashboard-avg-points">0</span>
+                      </div>
+                    </div>
+                    <div className="stat-item">
+                      <div className="stat-icon"><i className="fas fa-calendar-alt"></i></div>
+                      <div className="stat-info">
+                        <span className="stat-label">Puntos Promedio/Jornada</span>
+                        <span className="stat-value" id="dashboard-avg-jornada">0</span>
+                      </div>
+                    </div>
+                    <div className="stat-chart" id="dashboard-jornada-chart">
+                      {/* Gráfico se cargará aquí */}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Columna 2: Jornada Actual */}
+              <div className="dashboard-column">
+                <div className="dashboard-card">
+                  <div className="dashboard-card-header">
+                    <h3><i className="fas fa-clock"></i> Jornada Actual</h3>
+                  </div>
+                  <div className="dashboard-card-content">
+                    <div className="jornada-status" id="dashboard-jornada-status">
+                      {/* Estado se cargará aquí */}
+                    </div>
+                    <div className="next-matches" id="dashboard-next-matches">
+                      {/* Próximos partidos se cargarán aquí */}
+                    </div>
+                    <button className="btn btn-primary btn-full" onClick={() => {
+                      if (typeof window !== 'undefined' && (window as any).goToPronosticos) {
+                        (window as any).goToPronosticos()
+                      }
+                    }}>
+                      <i className="fas fa-edit"></i> Hacer Pronósticos
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Columna 3: Ligas Rápidas */}
+              <div className="dashboard-column">
+                <div className="dashboard-card">
+                  <div className="dashboard-card-header">
+                    <h3><i className="fas fa-users"></i> Mis Ligas</h3>
+                  </div>
+                  <div className="dashboard-card-content">
+                    <div id="dashboard-top-ligas">
+                      {/* Top ligas se cargarán aquí */}
+                    </div>
+                    <a href="#" className="dashboard-link" onClick={(e) => {
+                      e.preventDefault()
+                      if (typeof window !== 'undefined' && (window as any).goToLigas) {
+                        (window as any).goToLigas()
+                      }
+                    }}>
+                      Ver todas las ligas <i className="fas fa-arrow-right"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Sección Inferior: Actividad Reciente */}
+            <div className="dashboard-activity">
+              <div className="dashboard-card">
+                <div className="dashboard-card-header">
+                  <h3><i className="fas fa-history"></i> Actividad Reciente</h3>
+                </div>
+                <div className="dashboard-card-content">
+                  <div id="dashboard-recent-activity">
+                    {/* Actividad reciente se cargará aquí */}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Vista de Clasificación (se muestra al hacer clic en una tarjeta) */}

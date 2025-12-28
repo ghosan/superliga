@@ -757,10 +757,15 @@ async function loadDashboard() {
         return;
     }
 
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        console.error('❌ Supabase no está disponible');
+        return;
+    }
+
     // Verificar que los elementos existan
     const userNameEl = document.getElementById('user-name');
     const dashboardUserNameEl = document.getElementById('dashboard-user-name');
-    const detailEl = document.getElementById('dashboard-liga-detail');
 
     if (!userNameEl || !dashboardUserNameEl) {
         console.error('❌ Elementos del dashboard no encontrados');
@@ -771,27 +776,438 @@ async function loadDashboard() {
     const userName = userNameEl.textContent || 'Usuario';
     dashboardUserNameEl.textContent = userName;
 
-    // Ocultar vista de detalle si está visible
-    if (detailEl) {
-        detailEl.style.display = 'none';
-    }
-
-    // Cargar tarjetas de ligas
     try {
-        await loadDashboardLigaCards();
+        // Cargar todos los datos del dashboard en paralelo
+        await Promise.all([
+            loadDashboardSummary(),
+            loadDashboardStatistics(),
+            loadDashboardJornada(),
+            loadDashboardTopLigas(),
+            loadDashboardActivity()
+        ]);
     } catch (error) {
         console.error('❌ Error cargando dashboard:', error);
-        const container = document.getElementById('dashboard-ligas-grid');
-        if (container) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <h3>Error</h3>
-                    <p>No se pudo cargar el dashboard. <button class="btn btn-primary btn-small" onclick="loadDashboard()" style="margin-top: 12px;">Reintentar</button></p>
+    }
+}
+
+async function loadDashboardSummary() {
+    if (!currentUser) return;
+    
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase) return;
+
+    try {
+        // Obtener datos del usuario
+        const { data: userData, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('users')
+                .select('total_points')
+                .eq('id', currentUser.id)
+                .single()
+        , 5000);
+
+        const totalPoints = userData?.total_points || 0;
+
+        // Actualizar puntos totales
+        const pointsEl = document.getElementById('dashboard-total-points');
+        if (pointsEl) pointsEl.textContent = totalPoints.toLocaleString();
+
+        // Actualizar badge según puntos
+        const badgeEl = document.getElementById('dashboard-badge');
+        if (badgeEl) {
+            if (totalPoints >= 10000) {
+                badgeEl.innerHTML = '<i class="fas fa-crown"></i><span>Maestro</span>';
+                badgeEl.className = 'dashboard-badge badge-gold';
+            } else if (totalPoints >= 5000) {
+                badgeEl.innerHTML = '<i class="fas fa-medal"></i><span>Experto</span>';
+                badgeEl.className = 'dashboard-badge badge-silver';
+            } else if (totalPoints >= 1000) {
+                badgeEl.innerHTML = '<i class="fas fa-trophy"></i><span>Pro</span>';
+                badgeEl.className = 'dashboard-badge badge-bronze';
+            } else {
+                badgeEl.innerHTML = '<i class="fas fa-star"></i><span>Principiante</span>';
+                badgeEl.className = 'dashboard-badge';
+            }
+        }
+
+        // Obtener jornada activa
+        const { data: configData } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('config')
+                .select('value')
+                .eq('key', 'active_jornada')
+                .single()
+        , 5000).catch(() => ({ data: null }));
+
+        const activeJornada = configData?.value || 1;
+        const jornadaInfoEl = document.getElementById('dashboard-jornada-info');
+        if (jornadaInfoEl) jornadaInfoEl.textContent = `Jornada ${activeJornada}`;
+
+    } catch (error) {
+        console.error('Error cargando resumen:', error);
+    }
+}
+
+async function loadDashboardStatistics() {
+    if (!currentUser) return;
+    
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase) return;
+
+    try {
+        // Obtener todas las predicciones del usuario
+        const { data: predictions, error: predError } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('predictions')
+                .select('points, matches(jornada)')
+                .eq('user_id', currentUser.id)
+        , 8000).catch(() => ({ data: [], error: null }));
+
+        const predictedCount = predictions?.length || 0;
+        const totalPoints = predictions?.reduce((sum, p) => sum + (p.points || 0), 0) || 0;
+        const avgPoints = predictedCount > 0 ? (totalPoints / predictedCount).toFixed(1) : '0';
+
+        // Calcular puntos por jornada
+        const pointsByJornada = {};
+        if (predictions) {
+            predictions.forEach(p => {
+                const jornada = p.matches?.jornada;
+                if (jornada) {
+                    pointsByJornada[jornada] = (pointsByJornada[jornada] || 0) + (p.points || 0);
+                }
+            });
+        }
+
+        // Calcular promedio por jornada
+        const jornadas = Object.keys(pointsByJornada);
+        const avgJornada = jornadas.length > 0 
+            ? (Object.values(pointsByJornada).reduce((a, b) => a + b, 0) / jornadas.length).toFixed(0)
+            : '0';
+
+        // Actualizar estadísticas
+        const predictedEl = document.getElementById('dashboard-predicted-matches');
+        if (predictedEl) predictedEl.textContent = predictedCount;
+
+        const avgEl = document.getElementById('dashboard-avg-points');
+        if (avgEl) avgEl.textContent = avgPoints;
+
+        const avgJornadaEl = document.getElementById('dashboard-avg-jornada');
+        if (avgJornadaEl) avgJornadaEl.textContent = avgJornada;
+
+        // Crear gráfico simple de barras
+        const chartEl = document.getElementById('dashboard-jornada-chart');
+        if (chartEl && jornadas.length > 0) {
+            const maxPoints = Math.max(...Object.values(pointsByJornada));
+            const sortedJornadas = jornadas.sort((a, b) => parseInt(a) - parseInt(b)).slice(-5); // Últimas 5 jornadas
+            
+            chartEl.innerHTML = `
+                <div class="chart-container">
+                    ${sortedJornadas.map(j => {
+                        const points = pointsByJornada[j] || 0;
+                        const height = maxPoints > 0 ? (points / maxPoints * 100) : 0;
+                        return `
+                            <div class="chart-bar-wrapper">
+                                <div class="chart-bar" style="height: ${height}%">
+                                    <span class="chart-value">${points}</span>
+                                </div>
+                                <span class="chart-label">J${j}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        } else if (chartEl) {
+            chartEl.innerHTML = '<p class="no-data">Aún no hay datos para mostrar</p>';
+        }
+
+    } catch (error) {
+        console.error('Error cargando estadísticas:', error);
+    }
+}
+
+async function loadDashboardJornada() {
+    if (!currentUser) return;
+    
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase) return;
+
+    try {
+        // Obtener jornada activa
+        const { data: configData } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('config')
+                .select('value')
+                .eq('key', 'active_jornada')
+                .single()
+        , 5000).catch(() => ({ data: { value: 1 } }));
+
+        const activeJornada = configData?.value || 1;
+
+        // Obtener partidos de la jornada activa
+        const { data: matches, error: matchesError } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('matches')
+                .select('id, home_team, away_team, match_date, jornada')
+                .eq('jornada', activeJornada)
+                .order('match_date', { ascending: true })
+                .limit(4)
+        , 8000).catch(() => ({ data: [], error: null }));
+
+        // Obtener predicciones del usuario para esta jornada
+        const { data: predictions } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('predictions')
+                .select('match_id, home_prediction, away_prediction')
+                .eq('user_id', currentUser.id)
+                .in('match_id', matches?.map(m => m.id) || [])
+        , 8000).catch(() => ({ data: [] }));
+
+        const predictionsMap = {};
+        if (predictions) {
+            predictions.forEach(p => {
+                predictionsMap[p.match_id] = p;
+            });
+        }
+
+        const predictedCount = Object.keys(predictionsMap).length;
+        const totalMatches = matches?.length || 0;
+        const pendingCount = totalMatches - predictedCount;
+
+        // Actualizar estado de jornada
+        const statusEl = document.getElementById('dashboard-jornada-status');
+        if (statusEl) {
+            const percentage = totalMatches > 0 ? Math.round((predictedCount / totalMatches) * 100) : 0;
+            statusEl.innerHTML = `
+                <div class="jornada-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${percentage}%"></div>
+                    </div>
+                    <div class="progress-info">
+                        <span><strong>${predictedCount}</strong> de <strong>${totalMatches}</strong> partidos pronosticados</span>
+                        ${pendingCount > 0 ? `<span class="pending-text">${pendingCount} pendientes</span>` : ''}
+                    </div>
                 </div>
             `;
         }
+
+        // Mostrar próximos partidos
+        const matchesEl = document.getElementById('dashboard-next-matches');
+        if (matchesEl && matches && matches.length > 0) {
+            matchesEl.innerHTML = matches.slice(0, 4).map(match => {
+                const prediction = predictionsMap[match.id];
+                const matchDate = new Date(match.match_date);
+                const dateStr = matchDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+                const timeStr = matchDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                
+                return `
+                    <div class="next-match-item ${prediction ? 'has-prediction' : ''}">
+                        <div class="match-teams">
+                            <span class="team-name">${match.home_team}</span>
+                            <span class="vs">vs</span>
+                            <span class="team-name">${match.away_team}</span>
+                        </div>
+                        <div class="match-info">
+                            <span class="match-date">${dateStr} ${timeStr}</span>
+                            ${prediction ? 
+                                `<span class="prediction-badge"><i class="fas fa-check"></i> ${prediction.home_prediction}-${prediction.away_prediction}</span>` :
+                                `<span class="pending-badge"><i class="fas fa-clock"></i> Pendiente</span>`
+                            }
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } else if (matchesEl) {
+            matchesEl.innerHTML = '<p class="no-data">No hay partidos en esta jornada</p>';
+        }
+
+    } catch (error) {
+        console.error('Error cargando jornada:', error);
     }
+}
+
+async function loadDashboardTopLigas() {
+    if (!currentUser) return;
+    
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase) return;
+
+    try {
+        // Obtener ligas del usuario
+        const { data: userLigas, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('liga_members')
+                .select('liga_id, ligas(id, name)')
+                .eq('user_id', currentUser.id)
+        , 8000).catch(() => ({ data: [], error: null }));
+
+        if (!userLigas || userLigas.length === 0) {
+            const ligasEl = document.getElementById('dashboard-top-ligas');
+            if (ligasEl) {
+                ligasEl.innerHTML = '<p class="no-data">No estás en ninguna liga</p>';
+            }
+            return;
+        }
+
+        // Obtener posición y puntos en cada liga
+        const ligasData = await Promise.all(
+            userLigas.slice(0, 3).map(async (item) => {
+                if (!item.ligas) return null;
+
+                const { data: members } = await executeQueryWithTimeout(() =>
+                    supabase
+                        .from('liga_members')
+                        .select('user_id, users(id, name, total_points)')
+                        .eq('liga_id', item.ligas.id)
+                , 5000).catch(() => ({ data: [] }));
+
+                const sortedMembers = (members || [])
+                    .map(m => ({ id: m.user_id, points: m.users?.total_points || 0 }))
+                    .sort((a, b) => b.points - a.points);
+
+                const userPosition = sortedMembers.findIndex(m => m.id === currentUser.id) + 1;
+                const userMember = sortedMembers.find(m => m.id === currentUser.id);
+                const userPoints = userMember?.points || 0;
+                const totalMembers = sortedMembers.length;
+
+                return {
+                    id: item.ligas.id,
+                    name: item.ligas.name,
+                    position: userPosition,
+                    points: userPoints,
+                    members: totalMembers
+                };
+            })
+        );
+
+        const validLigas = ligasData.filter(l => l !== null);
+
+        const ligasEl = document.getElementById('dashboard-top-ligas');
+        if (ligasEl) {
+            if (validLigas.length === 0) {
+                ligasEl.innerHTML = '<p class="no-data">No hay datos disponibles</p>';
+            } else {
+                ligasEl.innerHTML = validLigas.map(liga => `
+                    <div class="liga-item" onclick="goToClasificaciones('${liga.id}')">
+                        <div class="liga-item-header">
+                            <h4>${liga.name}</h4>
+                            <span class="liga-position-badge ${liga.position === 1 ? 'gold' : liga.position === 2 ? 'silver' : liga.position === 3 ? 'bronze' : ''}">
+                                #${liga.position}
+                            </span>
+                        </div>
+                        <div class="liga-item-stats">
+                            <div class="liga-stat-small">
+                                <i class="fas fa-trophy"></i>
+                                <span>${liga.points} pts</span>
+                            </div>
+                            <div class="liga-stat-small">
+                                <i class="fas fa-users"></i>
+                                <span>${liga.members} miembros</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+    } catch (error) {
+        console.error('Error cargando top ligas:', error);
+    }
+}
+
+async function loadDashboardActivity() {
+    if (!currentUser) return;
+    
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase) return;
+
+    try {
+        // Obtener últimas predicciones
+        const { data: recentPredictions, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('predictions')
+                .select('home_prediction, away_prediction, points, matches(home_team, away_team, jornada, match_date, home_score, away_score)')
+                .eq('user_id', currentUser.id)
+                .order('created_at', { ascending: false })
+                .limit(5)
+        , 8000).catch(() => ({ data: [], error: null }));
+
+        const activityEl = document.getElementById('dashboard-recent-activity');
+        if (activityEl) {
+            if (!recentPredictions || recentPredictions.length === 0) {
+                activityEl.innerHTML = '<p class="no-data">Aún no has hecho pronósticos</p>';
+            } else {
+                activityEl.innerHTML = recentPredictions.map(pred => {
+                    const match = pred.matches;
+                    if (!match) return '';
+
+                    const hasResult = match.home_score !== null && match.away_score !== null;
+                    const date = new Date(match.match_date);
+                    const dateStr = date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+
+                    return `
+                        <div class="activity-item ${hasResult ? 'has-result' : ''}">
+                            <div class="activity-match">
+                                <div class="activity-teams">
+                                    <span>${match.home_team}</span>
+                                    <span class="activity-score">${pred.home_prediction} - ${pred.away_prediction}</span>
+                                    <span>${match.away_team}</span>
+                                </div>
+                                <div class="activity-info">
+                                    <span class="activity-jornada">J${match.jornada}</span>
+                                    <span class="activity-date">${dateStr}</span>
+                                    ${hasResult ? 
+                                        `<span class="activity-result">
+                                            Resultado: ${match.home_score}-${match.away_score}
+                                            ${pred.points ? `<span class="activity-points">+${pred.points} pts</span>` : ''}
+                                        </span>` :
+                                        '<span class="activity-status">Pendiente</span>'
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+    } catch (error) {
+        console.error('Error cargando actividad:', error);
+    }
+}
+
+// Funciones de navegación rápida
+function goToPronosticos() {
+    document.querySelector('.nav-link[data-page="pronosticos"]')?.click();
+}
+
+function goToLigas() {
+    document.querySelector('.nav-link[data-page="ligas"]')?.click();
+}
+
+function goToClasificaciones(ligaId = null) {
+    const link = document.querySelector('.nav-link[data-page="clasificaciones"]');
+    if (link) {
+        link.click();
+        // Si se proporciona ligaId, seleccionarla después de un breve delay
+        if (ligaId) {
+            setTimeout(() => {
+                const select = document.getElementById('liga-select');
+                if (select) {
+                    select.value = ligaId;
+                    if (typeof window !== 'undefined' && window.loadLigaClassification) {
+                        window.loadLigaClassification();
+                    }
+                }
+            }, 300);
+        }
+    }
+}
+
+// Exponer funciones globalmente
+if (typeof window !== 'undefined') {
+    window.goToPronosticos = goToPronosticos;
+    window.goToLigas = goToLigas;
+    window.goToClasificaciones = goToClasificaciones;
 }
 
 async function loadDashboardLigaCards() {
