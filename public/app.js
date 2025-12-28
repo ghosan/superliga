@@ -231,20 +231,18 @@ async function handleForgotPassword(event) {
         }
 
         // Obtener la URL correcta para redirección
-        // IMPORTANTE: Supabase necesita la URL exacta de producción configurada en su dashboard
-        // Si estás en localhost, Supabase redirigirá a la URL configurada en su dashboard
-        // Por eso siempre debemos usar la URL de producción de Vercel
-        const isLocalhost = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+        // IMPORTANTE: Supabase solo permite redirecciones a URLs que estén en su whitelist
+        // Por eso SIEMPRE debemos usar la URL de producción, incluso si estamos en localhost
+        // La URL debe estar configurada en Supabase Dashboard → Authentication → URL Configuration
         
-        // Si estás en localhost, usar la URL de producción (debe estar configurada en Supabase)
-        // Si estás en producción, usar la URL actual
-        // NOTA: Cambia 'tu-proyecto-vercel' por el nombre real de tu proyecto en Vercel
-        const productionUrl = 'https://superliga-two.vercel.app'; // CAMBIAR POR TU URL DE VERCEL
-        const redirectUrl = isLocalhost 
-            ? `${productionUrl}/reset-password`
-            : `${window.location.origin}/reset-password`;
+        // SIEMPRE usar la URL de producción
+        const productionUrl = 'https://superliga-two.vercel.app';
+        const redirectUrl = `${productionUrl}/reset-password`;
         
-        console.log('Enviando email de recuperación con redirectTo:', redirectUrl);
+        console.log('📧 Enviando email de recuperación:');
+        console.log('   - Email:', email);
+        console.log('   - Redirect URL:', redirectUrl);
+        console.log('   - IMPORTANTE: Esta URL debe estar en Supabase Dashboard → Authentication → URL Configuration');
         
         // Enviar email de recuperación
         const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
