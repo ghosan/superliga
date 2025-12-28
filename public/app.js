@@ -3386,6 +3386,17 @@ async function importFromExcel() {
         return;
     }
 
+    // Verificar que el usuario esté autenticado y sea admin
+    if (!currentUser) {
+        showNotification('Debes iniciar sesión para importar partidos', 'error');
+        return;
+    }
+
+    if (!isAdmin) {
+        showNotification('Solo los administradores pueden importar partidos', 'error');
+        return;
+    }
+
     // Verificar que Supabase esté disponible
     const supabase = window.supabase || window.supabaseClient;
     if (!supabase || !supabase.from) {
@@ -3393,6 +3404,8 @@ async function importFromExcel() {
         console.error('❌ Supabase no está disponible');
         return;
     }
+
+    console.log('✅ Usuario autenticado como admin:', currentUser.email);
 
     const lines = excelData.split('\n').filter(line => line.trim());
     const matches = [];
@@ -3519,49 +3532,110 @@ async function importFromExcel() {
     try {
         showNotification('Importando partidos...', 'info');
         
+        // Verificar que Supabase esté disponible y funcionando
+        if (!supabase || !supabase.from) {
+            throw new Error('Supabase no está disponible. Recarga la página.');
+        }
+        
+        // Probar conexión con una consulta simple
+        try {
+            const { data: testData, error: testError } = await supabase
+                .from('matches')
+                .select('id')
+                .limit(1);
+            
+            if (testError) {
+                console.error('❌ Error de conexión a Supabase:', testError);
+                throw new Error(`Error de conexión: ${testError.message}`);
+            }
+            console.log('✅ Conexión a Supabase verificada');
+        } catch (testError) {
+            throw new Error(`No se pudo conectar con la base de datos: ${testError.message}`);
+        }
+        
         console.log('📤 Insertando partidos en Supabase...');
         console.log('📊 Total a insertar:', matches.length);
-        console.log('📋 Datos a insertar (primeros 3):', matches.slice(0, 3));
-        console.log('📋 Estructura del primer partido:', {
-            jornada: typeof matches[0].jornada,
-            match_date: typeof matches[0].match_date,
-            home_team: typeof matches[0].home_team,
-            away_team: typeof matches[0].away_team,
-            home_score: matches[0].home_score,
-            away_score: matches[0].away_score
-        });
         
-        // Insertar directamente sin usar executeQueryWithTimeout para mejor control
-        const { data, error } = await supabase
-            .from('matches')
-            .insert(matches)
-            .select();
-
-        console.log('📦 Respuesta de Supabase:', { 
-            data, 
-            error, 
-            inserted: data?.length,
-            hasData: !!data,
-            errorMessage: error?.message,
-            errorDetails: error
+        // Asegurar que los datos estén en el formato correcto
+        const matchesToInsert = matches.map(m => {
+            // Validar y convertir tipos
+            const matchDate = new Date(m.match_date);
+            if (isNaN(matchDate.getTime())) {
+                throw new Error(`Fecha inválida en partido: ${m.home_team} vs ${m.away_team}`);
+            }
+            
+            return {
+                jornada: parseInt(m.jornada),
+                match_date: matchDate.toISOString(), // Asegurar formato ISO
+                home_team: String(m.home_team).trim(),
+                away_team: String(m.away_team).trim(),
+                home_score: null,
+                away_score: null
+            };
         });
 
-        if (error) {
-            console.error('❌ Error de Supabase:', error);
-            console.error('❌ Detalles del error:', JSON.stringify(error, null, 2));
-            throw error;
+        console.log('📋 Primer partido formateado:', matchesToInsert[0]);
+        console.log('📋 Estructura completa:', JSON.stringify(matchesToInsert[0], null, 2));
+        
+        // Insertar en lotes de 50 para evitar problemas con muchos partidos
+        const BATCH_SIZE = 50;
+        let insertedCount = 0;
+        let failedCount = 0;
+        
+        for (let i = 0; i < matchesToInsert.length; i += BATCH_SIZE) {
+            const batch = matchesToInsert.slice(i, i + BATCH_SIZE);
+            console.log(`📦 Insertando lote ${Math.floor(i/BATCH_SIZE) + 1}: ${batch.length} partidos`);
+            
+            try {
+                const { data, error } = await supabase
+                    .from('matches')
+                    .insert(batch)
+                    .select();
+
+                console.log(`📦 Respuesta del lote ${Math.floor(i/BATCH_SIZE) + 1}:`, { 
+                    data: data?.length || 0,
+                    error: error ? error.message : null,
+                    hasData: !!data,
+                    hasError: !!error
+                });
+
+                if (error) {
+                    console.error(`❌ Error en lote ${Math.floor(i/BATCH_SIZE) + 1}:`, error);
+                    console.error('❌ Detalles del error:', JSON.stringify(error, null, 2));
+                    failedCount += batch.length;
+                    throw error;
+                }
+
+                if (!data || data.length === 0) {
+                    console.error(`❌ No se devolvieron datos del lote ${Math.floor(i/BATCH_SIZE) + 1}`);
+                    failedCount += batch.length;
+                    throw new Error(`No se insertaron partidos del lote ${Math.floor(i/BATCH_SIZE) + 1}`);
+                }
+
+                insertedCount += data.length;
+                console.log(`✅ Lote ${Math.floor(i/BATCH_SIZE) + 1} insertado: ${data.length} partidos`);
+                
+                // Pequeño delay entre lotes
+                if (i + BATCH_SIZE < matchesToInsert.length) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            } catch (batchError) {
+                console.error(`❌ Error en lote ${Math.floor(i/BATCH_SIZE) + 1}:`, batchError);
+                failedCount += batch.length;
+                // Continuar con el siguiente lote
+            }
         }
 
-        if (!data || data.length === 0) {
-            console.error('❌ No se devolvieron datos de la inserción');
-            throw new Error('No se insertaron partidos. Verifica los datos y la conexión a la base de datos.');
+        if (insertedCount === 0) {
+            throw new Error('No se pudo insertar ningún partido. Verifica los datos y la conexión.');
         }
 
-        if (data.length !== matches.length) {
-            console.warn(`⚠️ Se insertaron ${data.length} partidos de ${matches.length} esperados`);
+        if (failedCount > 0) {
+            showNotification(`⚠️ Se insertaron ${insertedCount} partidos, ${failedCount} fallaron`, 'warning');
+        } else {
+            showNotification(`¡${insertedCount} partidos importados correctamente!`, 'success');
         }
-
-        showNotification(`¡${data.length} partidos importados correctamente!`, 'success');
+        
         clearExcelData();
         
         // Recargar lista de partidos después de un breve delay
@@ -3574,6 +3648,7 @@ async function importFromExcel() {
     } catch (error) {
         console.error('❌ Error importando partidos:', error);
         console.error('❌ Stack trace:', error.stack);
+        console.error('❌ Error completo:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
         
         let errorMessage = 'Error desconocido al importar partidos';
         if (error.message) {
@@ -3582,6 +3657,10 @@ async function importFromExcel() {
             errorMessage = error;
         } else if (error.code) {
             errorMessage = `Error ${error.code}: ${error.message || 'Error en la base de datos'}`;
+        } else if (error.details) {
+            errorMessage = error.details;
+        } else if (error.hint) {
+            errorMessage = error.hint;
         }
         
         showNotification('Error al importar partidos: ' + errorMessage, 'error');
