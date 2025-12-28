@@ -954,6 +954,22 @@ export default function Home() {
                   <i className="fas fa-trash-alt"></i> Eliminar Todos los Partidos
                 </button>
               </div>
+
+              <div className="admin-card">
+                <h3><i className="fas fa-user-times"></i> Reiniciar Puntos de Todos los Usuarios</h3>
+                <p className="help-text warning-text">
+                  Esta acción establecerá los puntos de <strong>TODOS</strong> los usuarios a 0, 
+                  sin eliminar partidos ni pronósticos.
+                </p>
+
+                <button className="btn btn-danger" onClick={() => {
+                  if (typeof window !== 'undefined' && (window as any).resetAllUserPoints) {
+                    (window as any).resetAllUserPoints()
+                  }
+                }}>
+                  <i className="fas fa-sync-alt"></i> Reiniciar Todos los Puntos
+                </button>
+              </div>
             </div>
           </section>
         </main>

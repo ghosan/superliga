@@ -4068,5 +4068,6 @@ if (typeof window !== 'undefined') {
     window.loadLigasForReset = loadLigasForReset;
     window.resetLiga = resetLiga;
     window.resetWeb = resetWeb;
+    window.resetAllUserPoints = resetAllUserPoints;
 }
 
