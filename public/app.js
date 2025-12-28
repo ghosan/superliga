@@ -4192,6 +4192,174 @@ if (typeof window !== 'undefined') {
 }
 
 // ========================================
+// CARGAR LIGAS PARA REINICIAR
+// ========================================
+async function loadLigasForReset() {
+    const selector = document.getElementById('reiniciar-liga-select');
+    if (!selector) {
+        console.error('❌ Selector reiniciar-liga-select no encontrado');
+        return;
+    }
+
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase) {
+        console.error('❌ Supabase no disponible');
+        return;
+    }
+
+    try {
+        // Limpiar selector
+        selector.innerHTML = '<option value="">Selecciona una liga</option>';
+
+        // Cargar todas las ligas
+        const { data: ligas, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('ligas')
+                .select('id, name, code')
+                .order('name', { ascending: true })
+        , 5000);
+
+        if (error) {
+            console.error('Error cargando ligas:', error);
+            throw error;
+        }
+
+        if (ligas && ligas.length > 0) {
+            ligas.forEach(liga => {
+                const option = document.createElement('option');
+                option.value = liga.id;
+                option.textContent = `${liga.name} (${liga.code})`;
+                selector.appendChild(option);
+            });
+
+            console.log(`✅ ${ligas.length} ligas cargadas para reiniciar`);
+
+            // Añadir listener para mostrar info cuando se selecciona una liga
+            selector.addEventListener('change', async function() {
+                const ligaId = this.value;
+                if (ligaId) {
+                    await loadResetLigaInfo(ligaId);
+                } else {
+                    document.getElementById('reiniciar-liga-info').style.display = 'none';
+                }
+            });
+        } else {
+            console.warn('No hay ligas disponibles');
+            selector.innerHTML = '<option value="">No hay ligas disponibles</option>';
+        }
+    } catch (error) {
+        console.error('Error en loadLigasForReset:', error);
+        selector.innerHTML = '<option value="">Error al cargar ligas</option>';
+    }
+}
+
+async function loadResetLigaInfo(ligaId) {
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase) return;
+
+    try {
+        // Obtener número de miembros
+        const { data: members, error: membersError } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('liga_members')
+                .select('user_id')
+                .eq('liga_id', ligaId)
+        , 5000);
+
+        const membersCount = members?.length || 0;
+
+        // Obtener total de puntos de todos los miembros de la liga
+        let totalPoints = 0;
+        if (members && members.length > 0) {
+            const userIds = members.map(m => m.user_id);
+            const { data: users, error: usersError } = await executeQueryWithTimeout(() =>
+                supabase
+                    .from('users')
+                    .select('total_points')
+                    .in('id', userIds)
+            , 5000);
+
+            if (!usersError && users) {
+                totalPoints = users.reduce((sum, u) => sum + (u.total_points || 0), 0);
+            }
+        }
+
+        // Mostrar info
+        const infoBox = document.getElementById('reiniciar-liga-info');
+        if (infoBox) {
+            document.getElementById('reiniciar-liga-members').textContent = membersCount;
+            document.getElementById('reiniciar-liga-total-points').textContent = totalPoints;
+            infoBox.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Error cargando info de liga:', error);
+    }
+}
+
+async function resetLiga() {
+    const selector = document.getElementById('reiniciar-liga-select');
+    if (!selector || !selector.value) {
+        showNotification('Selecciona una liga primero', 'error');
+        return;
+    }
+
+    const ligaId = parseInt(selector.value);
+
+    if (!confirm('¿Estás seguro de reiniciar esta liga?\n\nEsta acción eliminará TODOS los puntos de todos los usuarios en esta liga.\n\nEsta acción NO se puede deshacer.')) {
+        return;
+    }
+
+    if (!confirm('ÚLTIMA CONFIRMACIÓN: ¿Reiniciar la liga definitivamente?')) {
+        return;
+    }
+
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase) {
+        showNotification('Error: No se pudo conectar con la base de datos', 'error');
+        return;
+    }
+
+    try {
+        showNotification('Reiniciando liga...', 'info');
+
+        // Obtener todos los miembros de la liga
+        const { data: members, error: membersError } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('liga_members')
+                .select('user_id')
+                .eq('liga_id', ligaId)
+        , 5000);
+
+        if (membersError) throw membersError;
+
+        if (!members || members.length === 0) {
+            showNotification('No hay miembros en esta liga', 'warning');
+            return;
+        }
+
+        // Resetear puntos de todos los miembros a 0
+        const userIds = members.map(m => m.user_id);
+        const { error: updateError } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('users')
+                .update({ total_points: 0 })
+                .in('id', userIds)
+        , 10000);
+
+        if (updateError) throw updateError;
+
+        showNotification(`✅ Liga reiniciada correctamente. ${members.length} usuarios afectados.`, 'success');
+
+        // Recargar info
+        await loadResetLigaInfo(ligaId);
+
+    } catch (error) {
+        console.error('Error reiniciando liga:', error);
+        showNotification('Error al reiniciar la liga: ' + (error.message || 'Error desconocido'), 'error');
+    }
+}
+
+// ========================================
 // ELIMINAR LIGA
 // ========================================
 async function deleteLiga(ligaId, ligaName) {
