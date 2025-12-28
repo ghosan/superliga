@@ -438,31 +438,20 @@ export default function Home() {
           <section id="clasificaciones-section" className="section">
             <div className="section-header">
               <h2><i className="fas fa-medal"></i> Clasificaciones</h2>
-              <div className="classification-tabs">
-                <button className="tab-btn active" data-tab="individual">Individual</button>
-                <button className="tab-btn" data-tab="liga">Por Liga</button>
-              </div>
             </div>
             
             <div className="classification-content">
-              <div id="individual-tab" className="tab-content active">
-                <div className="leaderboard" id="individual-leaderboard">
-                  {/* Se carga dinámicamente */}
-                </div>
+              <div className="liga-selector">
+                <select id="liga-select" onChange={() => {
+                  if (typeof window !== 'undefined' && (window as any).loadLigaClassification) {
+                    (window as any).loadLigaClassification()
+                  }
+                }}>
+                  <option value="">Selecciona una liga</option>
+                </select>
               </div>
-              <div id="liga-tab" className="tab-content">
-                <div className="liga-selector">
-                  <select id="liga-select" onChange={() => {
-                    if (typeof window !== 'undefined' && (window as any).loadLigaClassification) {
-                      (window as any).loadLigaClassification()
-                    }
-                  }}>
-                    <option value="">Selecciona una liga</option>
-                  </select>
-                </div>
-                <div className="leaderboard" id="liga-leaderboard">
-                  {/* Se carga dinámicamente */}
-                </div>
+              <div className="leaderboard" id="liga-leaderboard">
+                {/* Se carga dinámicamente */}
               </div>
             </div>
           </section>

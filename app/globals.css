@@ -1635,30 +1635,54 @@ body {
 }
 
 .total-col {
-    width: 60px;
+    width: 80px;
     text-align: center;
     font-weight: 700;
-    color: var(--slate-800);
-    background: var(--slate-100);
-    padding: 4px 8px;
+    color: var(--slate-900);
+    background: var(--blue-50);
+    padding: 6px 10px;
     border-radius: var(--rounded);
     flex-shrink: 0;
+    border: 2px solid var(--blue-300);
+    font-size: 14px;
 }
 
-.classification-header .total-col {
-    background: var(--slate-200);
+.total-col.highlighted {
+    background: var(--blue-100);
+    border: 2px solid var(--blue-400);
+    font-weight: 800;
+    color: var(--blue-900);
+}
+
+.classification-header .total-col,
+.classification-header .total-col.highlighted {
+    background: var(--blue-200);
+    border: 2px solid var(--blue-500);
+    color: var(--blue-900);
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
 }
 
 .jornada-col {
-    width: 45px;
+    width: 50px;
     text-align: center;
+    font-weight: 500;
+    color: var(--slate-700);
+    background: transparent;
+    padding: 6px 8px;
+    flex-shrink: 0;
+    font-size: 13px;
     flex-shrink: 0;
     color: var(--slate-600);
     font-size: 12px;
 }
 
 .classification-header .jornada-col {
-    color: var(--slate-500);
+    color: var(--slate-600);
+    font-weight: 600;
+    background: transparent;
 }
 
 /* Leaderboard antiguo (para ligas) */

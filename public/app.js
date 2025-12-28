@@ -62,8 +62,7 @@ async function initializeApp() {
     // Configurar navegación
     setupNavigation();
     
-    // Configurar tabs de clasificación
-    setupClassificationTabs();
+    // Tabs de clasificación eliminados - solo se muestra por liga
     
     // Configurar tabs de admin
     setupAdminTabs();
@@ -1303,7 +1302,7 @@ function setupQuickActions() {
             if (page === 'pronosticos') {
                 loadMatches();
             } else if (page === 'clasificaciones') {
-                loadIndividualClassification();
+                loadLigasForSelect();
             } else if (page === 'ligas') {
                 loadUserLigas();
             }
@@ -1328,7 +1327,7 @@ function setupQuickActions() {
             if (page === 'pronosticos') {
                 loadMatches();
             } else if (page === 'clasificaciones') {
-                loadIndividualClassification();
+                loadLigasForSelect();
             }
         });
     });
@@ -1355,7 +1354,7 @@ function setupNavigation() {
                 loadPronosticosLigaSelector();
                 // loadMatches se llamará cuando se seleccione una liga
             } else if (page === 'clasificaciones') {
-                loadIndividualClassification();
+                loadLigasForSelect();
             } else if (page === 'ligas') {
                 loadUserLigas();
             } else if (page === 'admin') {
@@ -2083,158 +2082,31 @@ async function loadProgress() {
 // CLASIFICACIONES
 // ========================================
 function setupClassificationTabs() {
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tab = btn.dataset.tab;
-            
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.getElementById(`${tab}-tab`).classList.add('active');
-            
-            if (tab === 'individual') {
-                loadIndividualClassification();
-            } else if (tab === 'liga') {
-                loadLigasForSelect();
-            }
-        });
-    });
+    // Esta función ya no es necesaria, pero la mantenemos para no romper referencias
+    // La clasificación solo se muestra por liga ahora
 }
 
-async function loadIndividualClassification() {
-    const container = document.getElementById('individual-leaderboard');
-    if (!container) {
-        console.error('❌ No se encontró individual-leaderboard');
+// Función eliminada - ya no se muestra clasificación individual
+
+async function loadLigasForSelect() {
+    if (!currentUser) {
+        const container = document.getElementById('liga-leaderboard');
+        if (container) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Debes iniciar sesión</h3>
+                    <p>Por favor, inicia sesión para ver las clasificaciones.</p>
+                </div>
+            `;
+        }
         return;
     }
 
-    container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
-
-    try {
-        // Obtener usuarios
-        const { data: users, error: usersError } = await supabase
-            .from('users')
-            .select('id, name, total_points')
-            .order('total_points', { ascending: false })
-            .limit(100);
-
-        if (usersError) {
-            console.error('❌ Error obteniendo usuarios:', usersError);
-            throw usersError;
-        }
-
-        if (!users || users.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-trophy"></i>
-                    <h3>Sin clasificación</h3>
-                    <p>Aún no hay puntuaciones registradas.</p>
-                </div>
-            `;
-            return;
-        }
-
-        // Obtener todas las predicciones con puntos
-        let predictions = [];
-        try {
-            const { data: predData, error: predError } = await supabase
-                .from('predictions')
-                .select('user_id, match_id, points, matches(jornada)')
-                .not('points', 'is', null);
-            
-            if (predError) {
-                console.warn('⚠️ Error obteniendo predicciones, continuando sin ellas:', predError);
-            } else {
-                predictions = predData || [];
-            }
-        } catch (predErr) {
-            console.warn('⚠️ Error en consulta de predicciones:', predErr);
-        }
-
-        // Obtener jornadas con partidos que tienen resultados
-        const { data: matches, error: matchError } = await supabase
-            .from('matches')
-            .select('jornada')
-            .not('home_score', 'is', null);
-
-        // Calcular jornadas únicas con resultados
-        const jornadasConResultados = [...new Set(matches?.map(m => m.jornada) || [])].sort((a, b) => a - b);
-
-        // Calcular puntos por usuario y jornada
-        const userPoints = {};
-        users.forEach(user => {
-            userPoints[user.id] = {
-                name: user.name,
-                total: user.total_points || 0,
-                jornadas: {}
-            };
-            jornadasConResultados.forEach(j => {
-                userPoints[user.id].jornadas[j] = 0;
-            });
-        });
-
-        // Sumar puntos por jornada
-        if (predictions) {
-            predictions.forEach(pred => {
-                if (userPoints[pred.user_id] && pred.matches?.jornada) {
-                    userPoints[pred.user_id].jornadas[pred.matches.jornada] += pred.points || 0;
-                }
-            });
-        }
-
-        // Ordenar usuarios por total
-        const sortedUsers = users.sort((a, b) => (b.total_points || 0) - (a.total_points || 0));
-
-        // Generar header con jornadas
-        const jornadaHeaders = jornadasConResultados.map(j => `<span class="jornada-col">J${j}</span>`).join('');
-
-        container.innerHTML = `
-            <div class="classification-table">
-                <div class="classification-header">
-                    <span class="pos-col">#</span>
-                    <span class="player-col">Jugador</span>
-                    <span class="total-col">Total</span>
-                    ${jornadaHeaders}
-                </div>
-                ${sortedUsers.map((user, index) => {
-                    const userData = userPoints[user.id];
-                    const jornadaCells = jornadasConResultados.map(j => 
-                        `<span class="jornada-col">${userData.jornadas[j] || 0}</span>`
-                    ).join('');
-                    
-                    return `
-                        <div class="classification-row ${currentUser && user.id === currentUser.id ? 'current-user' : ''}">
-                            <span class="pos-col ${index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : ''}">${index + 1}</span>
-                            <div class="player-col">
-                                <div class="player-avatar">${getInitials(user.name)}</div>
-                                <span class="player-name">${user.name}</span>
-                            </div>
-                            <span class="total-col">${userData.total}</span>
-                            ${jornadaCells}
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-        `;
-    } catch (error) {
-        console.error('❌ Error cargando clasificación:', error);
-        const errorMessage = error.message || 'Error desconocido';
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-exclamation-triangle"></i>
-                <h3>Error</h3>
-                <p>No se pudo cargar la clasificación: ${errorMessage}</p>
-                <button class="btn btn-primary btn-small" onclick="loadIndividualClassification()" style="margin-top: 12px;">
-                    <i class="fas fa-redo"></i> Reintentar
-                </button>
-            </div>
-        `;
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        return;
     }
-}
-
-async function loadLigasForSelect() {
-    if (!currentUser) return;
 
     try {
         const { data: userLigas, error } = await supabase
@@ -2245,17 +2117,52 @@ async function loadLigasForSelect() {
         if (error) throw error;
 
         const select = document.getElementById('liga-select');
+        const selectorContainer = document.querySelector('.liga-selector');
+        
+        if (!select || !selectorContainer) return;
+
+        // Si solo hay una liga, ocultar el selector y cargar automáticamente
+        if (userLigas && userLigas.length === 1 && userLigas[0].ligas) {
+            selectorContainer.style.display = 'none';
+            select.value = userLigas[0].ligas.id;
+            loadLigaClassification();
+            return;
+        }
+
+        // Si hay más de una liga, mostrar el selector
+        selectorContainer.style.display = 'block';
         select.innerHTML = '<option value="">Selecciona una liga</option>';
         
-        if (userLigas) {
+        if (userLigas && userLigas.length > 0) {
             userLigas.forEach(item => {
                 if (item.ligas) {
                     select.innerHTML += `<option value="${item.ligas.id}">${item.ligas.name}</option>`;
                 }
             });
+        } else {
+            const container = document.getElementById('liga-leaderboard');
+            if (container) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-users"></i>
+                        <h3>No estás en ninguna liga</h3>
+                        <p>Únete a una liga primero para ver las clasificaciones.</p>
+                    </div>
+                `;
+            }
         }
     } catch (error) {
         console.error('Error cargando ligas:', error);
+        const container = document.getElementById('liga-leaderboard');
+        if (container) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Error</h3>
+                    <p>No se pudieron cargar las ligas. Por favor, recarga la página.</p>
+                </div>
+            `;
+        }
     }
 }
 
@@ -2289,26 +2196,16 @@ async function loadLigaClassification() {
     container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
 
     try {
-        // Añadir timeout a la consulta
-        const queryPromise = supabase
-            .from('liga_members')
-            .select('user_id, users(id, name, total_points)')
-            .eq('liga_id', ligaId);
+        // Obtener miembros de la liga
+        const membersResult = await executeQueryWithTimeout(() => 
+            supabase
+                .from('liga_members')
+                .select('user_id, users(id, name, total_points)')
+                .eq('liga_id', ligaId)
+        , 10000);
         
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Timeout: La consulta tardó más de 10 segundos')), 10000)
-        );
-        
-        let data, error;
-        try {
-            const result = await Promise.race([queryPromise, timeoutPromise]);
-            data = result.data;
-            error = result.error;
-        } catch (timeoutError) {
-            throw timeoutError;
-        }
-        
-        // Ordenar por puntos (ya que Supabase no ordena bien con relaciones)
+        const data = membersResult.data;
+        const error = membersResult.error;
 
         if (error) throw error;
 
@@ -2323,28 +2220,97 @@ async function loadLigaClassification() {
             return;
         }
 
-        // Ordenar por puntos
+        // Obtener predicciones con puntos agrupadas por jornada
+        const predictionsResult = await executeQueryWithTimeout(() => 
+            supabase
+                .from('predictions')
+                .select('user_id, points, matches(jornada)')
+                .in('user_id', data.map(m => m.user_id))
+                .not('points', 'is', null)
+        , 10000);
+        
+        const predictions = predictionsResult.data || [];
+
+        // Obtener jornadas con partidos que tienen resultados
+        const matchesResult = await executeQueryWithTimeout(() => 
+            supabase
+                .from('matches')
+                .select('jornada')
+                .not('home_score', 'is', null)
+        , 10000);
+        
+        const matches = matchesResult.data || [];
+        const jornadasConResultados = [...new Set(matches.map(m => m.jornada))].sort((a, b) => a - b);
+
+        // Calcular puntos por usuario y jornada
+        const userPoints = {};
+        data.forEach(member => {
+            const userId = member.user_id;
+            userPoints[userId] = {
+                name: member.users?.name || 'Usuario',
+                total: member.users?.total_points || 0,
+                jornadas: {}
+            };
+            jornadasConResultados.forEach(j => {
+                userPoints[userId].jornadas[j] = 0;
+            });
+        });
+
+        // Sumar puntos por jornada
+        predictions.forEach(pred => {
+            if (userPoints[pred.user_id] && pred.matches?.jornada) {
+                userPoints[pred.user_id].jornadas[pred.matches.jornada] += pred.points || 0;
+            }
+        });
+
+        // Ordenar por total
         const sortedData = data.sort((a, b) => (b.users?.total_points || 0) - (a.users?.total_points || 0));
 
+        // Generar header con jornadas
+        const jornadaHeaders = jornadasConResultados.map(j => `<span class="jornada-col">J${j}</span>`).join('');
+
         container.innerHTML = `
-            <div class="leaderboard-header">
-                <span>#</span>
-                <span>Jugador</span>
-                <span>Puntos</span>
-            </div>
-            ${sortedData.map((member, index) => `
-                <div class="leaderboard-row ${currentUser && member.users?.id === currentUser.id ? 'current-user' : ''}">
-                    <span class="position ${index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : ''}">${index + 1}</span>
-                    <div class="player-info">
-                        <div class="player-avatar">${getInitials(member.users?.name || 'U')}</div>
-                        <span class="player-name">${member.users?.name || 'Usuario'}</span>
-                    </div>
-                    <span class="player-points">${member.users?.total_points || 0}</span>
+            <div class="classification-table">
+                <div class="classification-header">
+                    <span class="pos-col">#</span>
+                    <span class="player-col">Jugador</span>
+                    <span class="total-col highlighted">Total</span>
+                    ${jornadaHeaders}
                 </div>
-            `).join('')}
+                ${sortedData.map((member, index) => {
+                    const userId = member.user_id;
+                    const userData = userPoints[userId];
+                    const jornadaCells = jornadasConResultados.map(j => 
+                        `<span class="jornada-col">${userData.jornadas[j] || 0}</span>`
+                    ).join('');
+                    
+                    return `
+                        <div class="classification-row ${currentUser && userId === currentUser.id ? 'current-user' : ''}">
+                            <span class="pos-col ${index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : ''}">${index + 1}</span>
+                            <div class="player-col">
+                                <div class="player-avatar">${getInitials(userData.name)}</div>
+                                <span class="player-name">${userData.name}</span>
+                            </div>
+                            <span class="total-col highlighted">${userData.total}</span>
+                            ${jornadaCells}
+                        </div>
+                    `;
+                }).join('')}
+            </div>
         `;
     } catch (error) {
-        console.error('Error cargando clasificación de liga:', error);
+        console.error('❌ Error cargando clasificación de liga:', error);
+        const errorMessage = error.message || 'Error desconocido';
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error</h3>
+                <p>No se pudo cargar la clasificación: ${errorMessage}</p>
+                <button class="btn btn-primary btn-small" onclick="loadLigaClassification()" style="margin-top: 12px;">
+                    <i class="fas fa-redo"></i> Reintentar
+                </button>
+            </div>
+        `;
     }
 }
 
