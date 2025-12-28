@@ -1417,14 +1417,42 @@ function changeJornada(delta) {
 // ========================================
 async function loadPronosticosLigaSelector() {
     const selector = document.getElementById('pronosticos-liga-select');
+    const container = document.getElementById('matches-container');
+    
     if (!selector) return;
+
+    // Mostrar inmediatamente el mensaje de seleccionar liga si no hay liga seleccionada
+    if (container && !selector.value) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-users"></i>
+                <h3>Selecciona una liga</h3>
+                <p>Por favor, selecciona una liga del menú desplegable para ver y hacer tus pronósticos.</p>
+            </div>
+        `;
+    }
 
     if (!currentUser) {
         selector.innerHTML = '<option value="">Debes iniciar sesión</option>';
+        if (container) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Debes iniciar sesión</h3>
+                    <p>Por favor, inicia sesión para ver tus pronósticos.</p>
+                </div>
+            `;
+        }
         return;
     }
 
     try {
+        const supabase = window.supabase || window.supabaseClient;
+        if (!supabase || !supabase.from) {
+            selector.innerHTML = '<option value="">Cargando...</option>';
+            return;
+        }
+
         const { data: userLigas, error } = await supabase
             .from('liga_members')
             .select('liga_id, ligas(id, name)')
@@ -1433,6 +1461,15 @@ async function loadPronosticosLigaSelector() {
         if (error) {
             console.error('Error cargando ligas:', error);
             selector.innerHTML = '<option value="">Error al cargar ligas</option>';
+            if (container) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <h3>Error</h3>
+                        <p>No se pudieron cargar las ligas. Por favor, intenta de nuevo.</p>
+                    </div>
+                `;
+            }
             return;
         }
 
@@ -1448,16 +1485,45 @@ async function loadPronosticosLigaSelector() {
                 }
             });
 
-            // Si hay una liga seleccionada previamente, restaurarla
+            // Si hay una liga seleccionada previamente, restaurarla y cargar partidos
             if (selectedPronosticosLiga) {
                 selector.value = selectedPronosticosLiga;
                 loadMatches();
+            } else {
+                // Asegurar que se muestre el mensaje de seleccionar liga
+                if (container && !selector.value) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-users"></i>
+                            <h3>Selecciona una liga</h3>
+                            <p>Por favor, selecciona una liga del menú desplegable para ver y hacer tus pronósticos.</p>
+                        </div>
+                    `;
+                }
             }
         } else {
             selector.innerHTML = '<option value="">No estás en ninguna liga</option>';
+            if (container) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-users"></i>
+                        <h3>No estás en ninguna liga</h3>
+                        <p>Únete a una liga primero para poder hacer pronósticos.</p>
+                    </div>
+                `;
+            }
         }
     } catch (error) {
         console.error('Error en loadPronosticosLigaSelector:', error);
+        if (container) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Error</h3>
+                    <p>Ocurrió un error al cargar las ligas. Por favor, recarga la página.</p>
+                </div>
+            `;
+        }
     }
 }
 
