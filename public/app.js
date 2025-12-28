@@ -2268,11 +2268,14 @@ function createMatchCard(match) {
     const matchTimestamp = matchDate.getTime();
     const nowTimestamp = now.getTime();
     
+    // Un partido está finalizado si tiene resultados
+    const isFinished = match.home_score !== null && match.away_score !== null;
+    
     // Bloquear SOLO si la fecha/hora del partido YA pasó
     // Si matchTimestamp es mayor que nowTimestamp, el partido es futuro y NO debe estar bloqueado
     const isLocked = matchTimestamp <= nowTimestamp;
     
-    // Debug temporal: Log para verificar fechas de los primeros 3 partidos
+    // Debug temporal: Log para verificar fechas de todos los partidos
     console.log(`🔍 Partido ${match.id} (${match.home_team} vs ${match.away_team}):`, {
         fechaOriginal: match.match_date,
         matchDateISO: matchDate.toISOString(),
@@ -2281,11 +2284,8 @@ function createMatchCard(match) {
         nowLocal: now.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }),
         diffMinutes: Math.round((nowTimestamp - matchTimestamp) / (60 * 1000)),
         isLocked: isLocked ? '🔒 BLOQUEADO' : '✅ DISPONIBLE',
-        isFinished
+        isFinished: isFinished ? 'Finalizado' : 'Pendiente'
     });
-    
-    // Un partido está finalizado si tiene resultados
-    const isFinished = match.home_score !== null && match.away_score !== null;
 
     let pointsEarned = null;
     if (isFinished && prediction.home_prediction !== null && prediction.away_prediction !== null) {
