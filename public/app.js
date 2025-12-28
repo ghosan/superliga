@@ -3455,6 +3455,12 @@ async function importFromExcel() {
             continue;
         }
 
+        // Validar que la fecha sea válida y no esté en el pasado (opcional)
+        if (isNaN(matchDate.getTime())) {
+            errors.push({ line: i + 1, error: `Fecha inválida: ${matchDate}`, data: line });
+            continue;
+        }
+
         matches.push({
             jornada,
             match_date: matchDate.toISOString(),
@@ -3463,15 +3469,44 @@ async function importFromExcel() {
             home_score: null,
             away_score: null
         });
+        
+        console.log(`✅ Línea ${i + 1} procesada:`, {
+            jornada,
+            match_date: matchDate.toISOString(),
+            home_team: homeTeam.trim(),
+            away_team: awayTeam.trim()
+        });
     }
 
     console.log(`✅ ${matches.length} partidos válidos encontrados, ${errors.length} errores`);
+
+    if (errors.length > 0) {
+        console.warn('⚠️ Errores encontrados:', errors);
+    }
 
     // Mostrar preview
     showImportPreview(matches, errors);
 
     if (matches.length === 0) {
         showNotification('No hay partidos válidos para importar', 'error');
+        if (errors.length > 0) {
+            console.error('❌ Errores que impidieron la importación:', errors);
+        }
+        return;
+    }
+
+    // Validar que todos los partidos tengan los campos necesarios
+    const invalidMatches = matches.filter(m => 
+        !m.jornada || 
+        !m.match_date || 
+        !m.home_team || 
+        !m.away_team ||
+        isNaN(new Date(m.match_date).getTime())
+    );
+
+    if (invalidMatches.length > 0) {
+        console.error('❌ Partidos inválidos detectados:', invalidMatches);
+        showNotification(`Error: ${invalidMatches.length} partidos tienen datos inválidos`, 'error');
         return;
     }
 
@@ -3480,43 +3515,85 @@ async function importFromExcel() {
         return;
     }
 
-    // Insertar en base de datos con timeout
+    // Insertar en base de datos
     try {
         showNotification('Importando partidos...', 'info');
         
-        console.log('📤 Insertando partidos en Supabase...', matches.length);
+        console.log('📤 Insertando partidos en Supabase...');
+        console.log('📊 Total a insertar:', matches.length);
+        console.log('📋 Datos a insertar (primeros 3):', matches.slice(0, 3));
+        console.log('📋 Estructura del primer partido:', {
+            jornada: typeof matches[0].jornada,
+            match_date: typeof matches[0].match_date,
+            home_team: typeof matches[0].home_team,
+            away_team: typeof matches[0].away_team,
+            home_score: matches[0].home_score,
+            away_score: matches[0].away_score
+        });
         
-        const result = await executeQueryWithTimeout(() =>
-            supabase
-                .from('matches')
-                .insert(matches)
-                .select()
-        , 15000);
+        // Insertar directamente sin usar executeQueryWithTimeout para mejor control
+        const { data, error } = await supabase
+            .from('matches')
+            .insert(matches)
+            .select();
 
-        const { data, error } = result;
-
-        console.log('📦 Respuesta de Supabase:', { data, error, inserted: data?.length });
+        console.log('📦 Respuesta de Supabase:', { 
+            data, 
+            error, 
+            inserted: data?.length,
+            hasData: !!data,
+            errorMessage: error?.message,
+            errorDetails: error
+        });
 
         if (error) {
             console.error('❌ Error de Supabase:', error);
+            console.error('❌ Detalles del error:', JSON.stringify(error, null, 2));
             throw error;
         }
 
         if (!data || data.length === 0) {
-            throw new Error('No se insertaron partidos. Verifica los datos.');
+            console.error('❌ No se devolvieron datos de la inserción');
+            throw new Error('No se insertaron partidos. Verifica los datos y la conexión a la base de datos.');
+        }
+
+        if (data.length !== matches.length) {
+            console.warn(`⚠️ Se insertaron ${data.length} partidos de ${matches.length} esperados`);
         }
 
         showNotification(`¡${data.length} partidos importados correctamente!`, 'success');
         clearExcelData();
         
-        // Recargar lista de partidos
-        if (typeof loadAdminMatches === 'function') {
-            loadAdminMatches();
-        }
+        // Recargar lista de partidos después de un breve delay
+        setTimeout(() => {
+            if (typeof loadAdminMatches === 'function') {
+                loadAdminMatches();
+            }
+        }, 500);
+        
     } catch (error) {
         console.error('❌ Error importando partidos:', error);
-        const errorMessage = error.message || 'Error desconocido';
+        console.error('❌ Stack trace:', error.stack);
+        
+        let errorMessage = 'Error desconocido al importar partidos';
+        if (error.message) {
+            errorMessage = error.message;
+        } else if (typeof error === 'string') {
+            errorMessage = error;
+        } else if (error.code) {
+            errorMessage = `Error ${error.code}: ${error.message || 'Error en la base de datos'}`;
+        }
+        
         showNotification('Error al importar partidos: ' + errorMessage, 'error');
+        
+        // Mostrar más detalles en consola para depuración
+        console.error('❌ Detalles completos del error:', {
+            error,
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint
+        });
     }
 }
 
