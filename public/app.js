@@ -947,14 +947,13 @@ async function loadDashboardJornada() {
 
         const activeJornada = configData?.value || 1;
 
-        // Obtener partidos de la jornada activa (incluyendo resultados)
+        // Obtener TODOS los partidos de la jornada activa (incluyendo resultados)
         const { data: matches, error: matchesError } = await executeQueryWithTimeout(() =>
             supabase
                 .from('matches')
                 .select('id, home_team, away_team, match_date, jornada, home_score, away_score')
                 .eq('jornada', activeJornada)
                 .order('match_date', { ascending: true })
-                .limit(4)
         , 8000).catch(() => ({ data: [], error: null }));
 
         // Contar total de partidos
@@ -972,10 +971,10 @@ async function loadDashboardJornada() {
             `;
         }
 
-        // Mostrar partidos de la jornada con resultados (sin pronósticos)
+        // Mostrar TODOS los partidos de la jornada con resultados (sin pronósticos)
         const matchesEl = document.getElementById('dashboard-next-matches');
         if (matchesEl && matches && matches.length > 0) {
-            matchesEl.innerHTML = matches.slice(0, 4).map(match => {
+            matchesEl.innerHTML = matches.map(match => {
                 const matchDate = new Date(match.match_date);
                 const dateStr = matchDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
                 const timeStr = matchDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });

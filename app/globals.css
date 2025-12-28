@@ -1018,8 +1018,27 @@ body {
     flex-direction: column;
     gap: 12px;
     margin-bottom: 20px;
-    max-height: 300px;
+    max-height: 500px;
     overflow-y: auto;
+    padding-right: 8px;
+}
+
+.next-matches::-webkit-scrollbar {
+    width: 6px;
+}
+
+.next-matches::-webkit-scrollbar-track {
+    background: var(--slate-100);
+    border-radius: 10px;
+}
+
+.next-matches::-webkit-scrollbar-thumb {
+    background: var(--slate-400);
+    border-radius: 10px;
+}
+
+.next-matches::-webkit-scrollbar-thumb:hover {
+    background: var(--slate-500);
 }
 
 .next-match-item {
