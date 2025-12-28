@@ -727,17 +727,53 @@ export default function Home() {
             <div id="partidos-admin-tab" className="admin-tab-content active">
               {/* IMPORTAR DESDE EXCEL */}
               <div className="admin-card">
-                <h3><i className="fas fa-file-excel"></i> Importar desde Excel</h3>
-                <p className="help-text">Copia las filas de tu Excel y pégalas aquí. El formato debe ser:</p>
+                <h3><i className="fas fa-file-excel"></i> Importar Partidos</h3>
+                <p className="help-text">Puedes importar partidos copiando y pegando datos o subiendo un archivo CSV/XLSX</p>
                 <div className="excel-format-example">
-                  <code>Jornada | Fecha (DD/MM/AAAA) | Hora (HH:MM) | Equipo Local | Equipo Visitante</code>
+                  <code>Formato: Jornada | Fecha (DD/MM/AAAA) | Hora (HH:MM) | Equipo Local | Equipo Visitante</code>
+                  <br />
+                  <small style={{color: 'var(--slate-600)'}}>Separado por tabulaciones, comas (CSV) o múltiples espacios</small>
                 </div>
+
+                {/* Opción 1: Subir archivo */}
+                <div className="form-group" style={{marginTop: '20px'}}>
+                  <label htmlFor="file-upload">
+                    <i className="fas fa-file"></i> Subir archivo CSV o XLSX:
+                  </label>
+                  <input 
+                    type="file" 
+                    id="file-upload" 
+                    accept=".csv,.xlsx,.xls"
+                    onChange={(e) => {
+                      if (typeof window !== 'undefined' && (window as any).handleFileUpload) {
+                        (window as any).handleFileUpload(e)
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '2px solid var(--slate-300)',
+                      borderRadius: '8px',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+
+                <div style={{textAlign: 'center', margin: '16px 0', color: 'var(--slate-500)'}}>
+                  <strong>O</strong>
+                </div>
+
+                {/* Opción 2: Pegar datos */}
                 <div className="form-group">
-                  <label>Pegar datos de Excel:</label>
+                  <label htmlFor="excel-data">Pegar datos directamente:</label>
                   <textarea id="excel-data" rows={8} placeholder={`Ejemplo:
 1	15/08/2025	21:00	Real Madrid	FC Barcelona
 1	16/08/2025	18:30	Atlético de Madrid	Sevilla FC
-1	16/08/2025	21:00	Valencia CF	Villarreal CF`}></textarea>
+1	16/08/2025	21:00	Valencia CF	Villarreal CF
+
+O formato CSV:
+1,15/08/2025,21:00,Real Madrid,FC Barcelona
+1,16/08/2025,18:30,Atlético de Madrid,Sevilla FC`}></textarea>
                 </div>
                 <div className="excel-actions">
                   <button className="btn btn-primary" onClick={() => {

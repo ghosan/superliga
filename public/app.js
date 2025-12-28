@@ -2299,20 +2299,44 @@ async function resetPredictions() {
         showNotification('Debes iniciar sesión', 'error');
         return;
     }
+
+    // Obtener liga seleccionada
+    const ligaSelect = document.getElementById('pronosticos-liga-select');
+    if (!ligaSelect || !ligaSelect.value) {
+        showNotification('Debes seleccionar una liga primero', 'error');
+        return;
+    }
+
+    const ligaId = parseInt(ligaSelect.value);
     
     try {
         // Obtener IDs de partidos de esta jornada
         const matchIds = Array.from(document.querySelectorAll('.match-row'))
-            .map(row => parseInt(row.dataset.matchId));
+            .map(row => parseInt(row.dataset.matchId))
+            .filter(id => !isNaN(id));
         
-        console.log('🗑️ Eliminando predicciones para partidos:', matchIds);
+        if (matchIds.length === 0) {
+            showNotification('No hay partidos para eliminar', 'warning');
+            return;
+        }
+
+        console.log('🗑️ Eliminando predicciones para partidos:', matchIds, 'en liga:', ligaId);
         
-        // Eliminar predicciones de la base de datos
-        const { error } = await supabase
-            .from('predictions')
-            .delete()
-            .eq('user_id', currentUser.id)
-            .in('match_id', matchIds);
+        // Eliminar predicciones de la base de datos (SOLO DE ESTA LIGA)
+        const supabase = window.supabase || window.supabaseClient;
+        if (!supabase) {
+            showNotification('Error: No se pudo conectar con la base de datos', 'error');
+            return;
+        }
+
+        const { error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('predictions')
+                .delete()
+                .eq('user_id', currentUser.id)
+                .eq('liga_id', ligaId)  // IMPORTANTE: Solo eliminar predicciones de esta liga
+                .in('match_id', matchIds)
+        , 10000);
         
         if (error) throw error;
         
@@ -2683,12 +2707,13 @@ async function loadLigaClassification() {
             return;
         }
 
-        // Obtener predicciones con puntos agrupadas por jornada
+        // Obtener predicciones con puntos agrupadas por jornada (FILTRADAS POR LIGA)
         const predictionsResult = await executeQueryWithTimeout(() => 
             supabase
                 .from('predictions')
                 .select('user_id, points, matches(jornada)')
                 .in('user_id', data.map(m => m.user_id))
+                .eq('liga_id', ligaId)  // IMPORTANTE: Filtrar por liga_id
                 .not('points', 'is', null)
         , 10000);
         
@@ -2705,13 +2730,13 @@ async function loadLigaClassification() {
         const matches = matchesResult.data || [];
         const jornadasConResultados = [...new Set(matches.map(m => m.jornada))].sort((a, b) => a - b);
 
-        // Calcular puntos por usuario y jornada
+        // Calcular puntos por usuario y jornada (SOLO PARA ESTA LIGA)
         const userPoints = {};
         data.forEach(member => {
             const userId = member.user_id;
             userPoints[userId] = {
                 name: member.users?.name || 'Usuario',
-                total: member.users?.total_points || 0,
+                total: 0,  // Se calculará sumando solo predicciones de esta liga
                 jornadas: {}
             };
             jornadasConResultados.forEach(j => {
@@ -2719,15 +2744,21 @@ async function loadLigaClassification() {
             });
         });
 
-        // Sumar puntos por jornada
+        // Sumar puntos por jornada (solo predicciones de esta liga)
         predictions.forEach(pred => {
             if (userPoints[pred.user_id] && pred.matches?.jornada) {
-                userPoints[pred.user_id].jornadas[pred.matches.jornada] += pred.points || 0;
+                const puntos = pred.points || 0;
+                userPoints[pred.user_id].jornadas[pred.matches.jornada] += puntos;
+                userPoints[pred.user_id].total += puntos;  // Sumar al total de la liga
             }
         });
 
-        // Ordenar por total
-        const sortedData = data.sort((a, b) => (b.users?.total_points || 0) - (a.users?.total_points || 0));
+        // Ordenar por total de esta liga (no por total_points global)
+        const sortedData = data.sort((a, b) => {
+            const totalA = userPoints[a.user_id]?.total || 0;
+            const totalB = userPoints[b.user_id]?.total || 0;
+            return totalB - totalA;
+        });
 
         // Generar header con jornadas
         const jornadaHeaders = jornadasConResultados.map(j => `<span class="jornada-col">J${j}</span>`).join('');
@@ -3291,6 +3322,60 @@ async function addMatch(event) {
 function clearExcelData() {
     document.getElementById('excel-data').value = '';
     document.getElementById('import-preview').innerHTML = '';
+    const fileInput = document.getElementById('file-upload');
+    if (fileInput) fileInput.value = '';
+}
+
+// Función para manejar la subida de archivos
+async function handleFileUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const fileName = file.name.toLowerCase();
+    const isCSV = fileName.endsWith('.csv');
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+
+    if (!isCSV && !isExcel) {
+        showNotification('Por favor, sube un archivo CSV o XLSX', 'error');
+        event.target.value = '';
+        return;
+    }
+
+    try {
+        showNotification('Leyendo archivo...', 'info');
+
+        if (isCSV) {
+            // Leer archivo CSV
+            const text = await file.text();
+            const textarea = document.getElementById('excel-data');
+            if (textarea) {
+                textarea.value = text;
+                showNotification('Archivo CSV cargado. Revisa los datos y haz clic en "Importar Partidos"', 'success');
+            }
+        } else if (isExcel) {
+            // Para Excel necesitaríamos una librería como SheetJS
+            // Por ahora, instruimos al usuario a copiar y pegar
+            showNotification('Para archivos Excel, por favor copia y pega los datos en el área de texto', 'warning');
+            
+            // Intentar leer como texto (puede funcionar si Excel guarda como CSV internamente)
+            try {
+                const text = await file.text();
+                const textarea = document.getElementById('excel-data');
+                if (textarea && text && text.length > 0 && text.includes(',')) {
+                    textarea.value = text;
+                    showNotification('Datos cargados. Si el formato no es correcto, copia y pega manualmente desde Excel', 'info');
+                } else {
+                    showNotification('No se pudo leer el archivo Excel directamente. Por favor, abre Excel y copia/pega los datos manualmente', 'warning');
+                }
+            } catch (e) {
+                showNotification('No se pudo leer el archivo Excel. Por favor, abre Excel y copia/pega los datos manualmente', 'warning');
+            }
+        }
+    } catch (error) {
+        console.error('Error leyendo archivo:', error);
+        showNotification('Error al leer el archivo. Por favor, copia y pega los datos manualmente', 'error');
+        event.target.value = '';
+    }
 }
 
 async function importFromExcel() {
@@ -3301,14 +3386,37 @@ async function importFromExcel() {
         return;
     }
 
+    // Verificar que Supabase esté disponible
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        showNotification('Error: No se pudo conectar con la base de datos', 'error');
+        console.error('❌ Supabase no está disponible');
+        return;
+    }
+
     const lines = excelData.split('\n').filter(line => line.trim());
     const matches = [];
     const errors = [];
 
+    console.log(`📊 Procesando ${lines.length} líneas de datos...`);
+
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
-        // Separar por tabulación o múltiples espacios
-        const parts = line.split(/\t|(?:  +)/).map(p => p.trim()).filter(p => p);
+        if (!line) continue;
+
+        // Separar por tabulación, comas (CSV) o múltiples espacios
+        // Intentar primero con tabulación (Excel), luego con comas (CSV), luego con espacios
+        let parts;
+        if (line.includes('\t')) {
+            // Tabulación (Excel)
+            parts = line.split('\t').map(p => p.trim()).filter(p => p);
+        } else if (line.includes(',')) {
+            // Comas (CSV) - manejar comas dentro de comillas
+            parts = parseCSVLine(line);
+        } else {
+            // Múltiples espacios
+            parts = line.split(/\s{2,}/).map(p => p.trim()).filter(p => p);
+        }
         
         if (parts.length < 5) {
             errors.push({ line: i + 1, error: `Faltan columnas (tiene ${parts.length}, necesita 5)`, data: line });
@@ -3337,6 +3445,11 @@ async function importFromExcel() {
         }
 
         // Validar equipos
+        if (!homeTeam || !awayTeam) {
+            errors.push({ line: i + 1, error: 'Equipo local o visitante vacío', data: line });
+            continue;
+        }
+
         if (homeTeam === awayTeam) {
             errors.push({ line: i + 1, error: 'Equipo local y visitante son iguales', data: line });
             continue;
@@ -3345,10 +3458,14 @@ async function importFromExcel() {
         matches.push({
             jornada,
             match_date: matchDate.toISOString(),
-            home_team: homeTeam,
-            away_team: awayTeam
+            home_team: homeTeam.trim(),
+            away_team: awayTeam.trim(),
+            home_score: null,
+            away_score: null
         });
     }
+
+    console.log(`✅ ${matches.length} partidos válidos encontrados, ${errors.length} errores`);
 
     // Mostrar preview
     showImportPreview(matches, errors);
@@ -3363,21 +3480,71 @@ async function importFromExcel() {
         return;
     }
 
-    // Insertar en base de datos
+    // Insertar en base de datos con timeout
     try {
-        const { data, error } = await supabase
-            .from('matches')
-            .insert(matches);
+        showNotification('Importando partidos...', 'info');
+        
+        console.log('📤 Insertando partidos en Supabase...', matches.length);
+        
+        const result = await executeQueryWithTimeout(() =>
+            supabase
+                .from('matches')
+                .insert(matches)
+                .select()
+        , 15000);
 
-        if (error) throw error;
+        const { data, error } = result;
 
-        showNotification(`¡${matches.length} partidos importados correctamente!`, 'success');
+        console.log('📦 Respuesta de Supabase:', { data, error, inserted: data?.length });
+
+        if (error) {
+            console.error('❌ Error de Supabase:', error);
+            throw error;
+        }
+
+        if (!data || data.length === 0) {
+            throw new Error('No se insertaron partidos. Verifica los datos.');
+        }
+
+        showNotification(`¡${data.length} partidos importados correctamente!`, 'success');
         clearExcelData();
-        loadAdminMatches();
+        
+        // Recargar lista de partidos
+        if (typeof loadAdminMatches === 'function') {
+            loadAdminMatches();
+        }
     } catch (error) {
-        console.error('Error importando partidos:', error);
-        showNotification('Error al importar partidos: ' + error.message, 'error');
+        console.error('❌ Error importando partidos:', error);
+        const errorMessage = error.message || 'Error desconocido';
+        showNotification('Error al importar partidos: ' + errorMessage, 'error');
     }
+}
+
+// Función auxiliar para parsear líneas CSV con comas dentro de comillas
+function parseCSVLine(line) {
+    const parts = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+            parts.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    
+    // Añadir el último elemento
+    if (current || parts.length > 0) {
+        parts.push(current.trim());
+    }
+    
+    return parts;
 }
 
 function parseSpanishDate(dateStr, timeStr) {
@@ -4164,6 +4331,7 @@ if (typeof window !== 'undefined') {
     window.resetPredictions = resetPredictions;
     window.loadLigaClassification = loadLigaClassification;
     window.importFromExcel = importFromExcel;
+    window.handleFileUpload = handleFileUpload;
     window.clearExcelData = clearExcelData;
     window.addMatch = addMatch;
     window.loadAdminMatches = loadAdminMatches;
