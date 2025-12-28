@@ -239,7 +239,7 @@ async function handleForgotPassword(event) {
         // Si estás en localhost, usar la URL de producción (debe estar configurada en Supabase)
         // Si estás en producción, usar la URL actual
         // NOTA: Cambia 'tu-proyecto-vercel' por el nombre real de tu proyecto en Vercel
-        const productionUrl = 'https://superliga-ghosan.vercel.app'; // CAMBIAR POR TU URL DE VERCEL
+        const productionUrl = 'https://superliga-two.vercel.app'; // CAMBIAR POR TU URL DE VERCEL
         const redirectUrl = isLocalhost 
             ? `${productionUrl}/reset-password`
             : `${window.location.origin}/reset-password`;
