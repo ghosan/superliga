@@ -2065,6 +2065,40 @@ async function loadMatches() {
         container.innerHTML = tableHeader + matches.map(match => createMatchCard(match)).join('');
         console.log('✅ Partidos renderizados');
         
+        // Verificar que los selectores estén habilitados/deshabilitados correctamente
+        let enabledCount = 0;
+        let disabledCount = 0;
+        matches.forEach(match => {
+            const matchDate = new Date(match.match_date);
+            const now = new Date();
+            const shouldBeLocked = matchDate.getTime() <= now.getTime();
+            
+            const homeSelect = document.getElementById(`home-${match.id}`);
+            const awaySelect = document.getElementById(`away-${match.id}`);
+            
+            if (homeSelect && awaySelect) {
+                const isActuallyDisabled = homeSelect.disabled && awaySelect.disabled;
+                
+                if (shouldBeLocked && !isActuallyDisabled) {
+                    console.warn(`⚠️ Partido ${match.id} debería estar bloqueado pero los selectores están habilitados`);
+                } else if (!shouldBeLocked && isActuallyDisabled) {
+                    console.error(`❌ Partido ${match.id} NO debería estar bloqueado pero los selectores están deshabilitados!`, {
+                        matchDate: matchDate.toISOString(),
+                        now: now.toISOString(),
+                        diff: now.getTime() - matchDate.getTime()
+                    });
+                    // Forzar habilitación si el partido es futuro
+                    homeSelect.disabled = false;
+                    awaySelect.disabled = false;
+                    enabledCount++;
+                }
+                
+                if (isActuallyDisabled) disabledCount++;
+                else enabledCount++;
+            }
+        });
+        console.log(`📊 Selectores: ${enabledCount} habilitados, ${disabledCount} deshabilitados`);
+        
         // Verificar que las predicciones se aplicaron correctamente
         let appliedCount = 0;
         matches.forEach(match => {
@@ -2207,29 +2241,48 @@ function createMatchCard(match) {
         // Si la fecha no es válida, intentar parsear como string ISO
         if (isNaN(matchDate.getTime())) {
             console.warn(`⚠️ Fecha inválida para partido ${match.id}: ${match.match_date}`);
-            matchDate = new Date(match.match_date + 'Z'); // Intentar añadir Z para UTC
+            // Intentar añadir Z para UTC si no lo tiene
+            const dateStr = String(match.match_date);
+            if (!dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.includes('-', 10)) {
+                matchDate = new Date(dateStr + 'Z');
+            } else {
+                matchDate = new Date(dateStr);
+            }
         }
         if (isNaN(matchDate.getTime())) {
-            console.error(`❌ No se pudo parsear la fecha del partido ${match.id}`);
-            matchDate = new Date(); // Usar fecha actual como fallback
+            console.error(`❌ No se pudo parsear la fecha del partido ${match.id}: ${match.match_date}`);
+            // Si no se puede parsear, asumir que es futuro para no bloquearlo incorrectamente
+            matchDate = new Date(Date.now() + (24 * 60 * 60 * 1000)); // Mañana como fallback
         }
     } catch (e) {
         console.error(`❌ Error parseando fecha del partido ${match.id}:`, e);
-        matchDate = new Date();
+        // Si hay error, asumir que es futuro para no bloquearlo incorrectamente
+        matchDate = new Date(Date.now() + (24 * 60 * 60 * 1000)); // Mañana como fallback
     }
     
     const now = new Date();
     
     // Bloquear partidos que ya han empezado (fecha y hora han pasado)
-    // Usar comparación directa de timestamps para mayor precisión
-    // Permitir pronósticos hasta que la fecha/hora del partido haya pasado
-    // Añadir un pequeño margen (1 minuto) para evitar problemas de precisión
+    // Comparar directamente: un partido está bloqueado si su fecha/hora YA pasó
+    // Permitir pronósticos en TODOS los partidos que aún no han empezado
     const matchTimestamp = matchDate.getTime();
     const nowTimestamp = now.getTime();
-    const oneMinute = 60 * 1000; // 1 minuto en milisegundos
     
-    // Bloquear si la fecha/hora del partido ya pasó (con margen de 1 minuto)
-    const isLocked = matchTimestamp <= (nowTimestamp - oneMinute);
+    // Bloquear SOLO si la fecha/hora del partido YA pasó
+    // Si matchTimestamp es mayor que nowTimestamp, el partido es futuro y NO debe estar bloqueado
+    const isLocked = matchTimestamp <= nowTimestamp;
+    
+    // Debug temporal: Log para verificar fechas de los primeros 3 partidos
+    console.log(`🔍 Partido ${match.id} (${match.home_team} vs ${match.away_team}):`, {
+        fechaOriginal: match.match_date,
+        matchDateISO: matchDate.toISOString(),
+        matchDateLocal: matchDate.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }),
+        nowISO: now.toISOString(),
+        nowLocal: now.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }),
+        diffMinutes: Math.round((nowTimestamp - matchTimestamp) / (60 * 1000)),
+        isLocked: isLocked ? '🔒 BLOQUEADO' : '✅ DISPONIBLE',
+        isFinished
+    });
     
     // Un partido está finalizado si tiene resultados
     const isFinished = match.home_score !== null && match.away_score !== null;
