@@ -957,48 +957,25 @@ async function loadDashboardJornada() {
                 .limit(4)
         , 8000).catch(() => ({ data: [], error: null }));
 
-        // Obtener predicciones del usuario para esta jornada
-        const { data: predictions } = await executeQueryWithTimeout(() =>
-            supabase
-                .from('predictions')
-                .select('match_id, home_prediction, away_prediction')
-                .eq('user_id', currentUser.id)
-                .in('match_id', matches?.map(m => m.id) || [])
-        , 8000).catch(() => ({ data: [] }));
-
-        const predictionsMap = {};
-        if (predictions) {
-            predictions.forEach(p => {
-                predictionsMap[p.match_id] = p;
-            });
-        }
-
-        const predictedCount = Object.keys(predictionsMap).length;
+        // Contar total de partidos
         const totalMatches = matches?.length || 0;
-        const pendingCount = totalMatches - predictedCount;
 
-        // Actualizar estado de jornada
+        // Actualizar estado de jornada (solo mostrar cantidad de partidos)
         const statusEl = document.getElementById('dashboard-jornada-status');
         if (statusEl) {
-            const percentage = totalMatches > 0 ? Math.round((predictedCount / totalMatches) * 100) : 0;
             statusEl.innerHTML = `
                 <div class="jornada-progress">
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${percentage}%"></div>
-                    </div>
                     <div class="progress-info">
-                        <span><strong>${predictedCount}</strong> de <strong>${totalMatches}</strong> partidos pronosticados</span>
-                        ${pendingCount > 0 ? `<span class="pending-text">${pendingCount} pendientes</span>` : ''}
+                        <span><strong>${totalMatches}</strong> partido${totalMatches !== 1 ? 's' : ''} en esta jornada</span>
                     </div>
                 </div>
             `;
         }
 
-        // Mostrar partidos de la jornada con resultados
+        // Mostrar partidos de la jornada con resultados (sin pronósticos)
         const matchesEl = document.getElementById('dashboard-next-matches');
         if (matchesEl && matches && matches.length > 0) {
             matchesEl.innerHTML = matches.slice(0, 4).map(match => {
-                const prediction = predictionsMap[match.id];
                 const matchDate = new Date(match.match_date);
                 const dateStr = matchDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
                 const timeStr = matchDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -1008,7 +985,7 @@ async function loadDashboardJornada() {
                 const isFinished = hasResult;
                 
                 return `
-                    <div class="next-match-item ${prediction ? 'has-prediction' : ''} ${isFinished ? 'finished' : ''}">
+                    <div class="next-match-item ${isFinished ? 'finished' : ''}">
                         <div class="match-teams">
                             <span class="team-name">${match.home_team}</span>
                             ${hasResult ? 
@@ -1021,10 +998,7 @@ async function loadDashboardJornada() {
                             <span class="match-date">${dateStr} ${timeStr}</span>
                             ${hasResult ? 
                                 `<span class="result-badge finished"><i class="fas fa-check-circle"></i> Finalizado</span>` :
-                                (prediction ? 
-                                    `<span class="prediction-badge"><i class="fas fa-check"></i> Tu pronóstico: ${prediction.home_prediction}-${prediction.away_prediction}</span>` :
-                                    '<span class="pending-badge"><i class="fas fa-clock"></i> Pendiente</span>'
-                                )
+                                '<span class="pending-badge"><i class="fas fa-clock"></i> Pendiente</span>'
                             }
                         </div>
                     </div>
