@@ -513,22 +513,31 @@ export default function Home() {
                     {/* Se cargan dinámicamente */}
                   </select>
                 </div>
-                <div className="jornada-selector">
-                  <button className="btn btn-small" onClick={() => {
-                    if (typeof window !== 'undefined' && (window as any).changeJornada) {
-                      (window as any).changeJornada(-1)
+                <div className="pronosticos-actions">
+                  <button className="btn btn-secondary" onClick={() => {
+                    if (typeof window !== 'undefined' && (window as any).showJoinLigaModal) {
+                      (window as any).showJoinLigaModal()
                     }
                   }}>
-                    <i className="fas fa-chevron-left"></i>
+                    <i className="fas fa-sign-in-alt"></i> Unirse a Liga
                   </button>
-                  <span id="current-jornada">Jornada 1</span>
-                  <button className="btn btn-small" onClick={() => {
-                    if (typeof window !== 'undefined' && (window as any).changeJornada) {
-                      (window as any).changeJornada(1)
-                    }
-                  }}>
-                    <i className="fas fa-chevron-right"></i>
-                  </button>
+                  <div className="jornada-selector">
+                    <button className="btn btn-small" onClick={() => {
+                      if (typeof window !== 'undefined' && (window as any).changeJornada) {
+                        (window as any).changeJornada(-1)
+                      }
+                    }}>
+                      <i className="fas fa-chevron-left"></i>
+                    </button>
+                    <span id="current-jornada">Jornada 1</span>
+                    <button className="btn btn-small" onClick={() => {
+                      if (typeof window !== 'undefined' && (window as any).changeJornada) {
+                        (window as any).changeJornada(1)
+                      }
+                    }}>
+                      <i className="fas fa-chevron-right"></i>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

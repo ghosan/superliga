@@ -1747,6 +1747,14 @@ body {
     align-items: center;
     gap: 16px;
     flex-wrap: wrap;
+    justify-content: space-between;
+}
+
+.pronosticos-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
 }
 
 .liga-selector-pronosticos {

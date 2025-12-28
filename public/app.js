@@ -1918,6 +1918,11 @@ async function loadPronosticosLigaSelector() {
                             <i class="fas fa-users"></i>
                             <h3>Selecciona una liga</h3>
                             <p>Por favor, selecciona una liga del menú desplegable para ver y hacer tus pronósticos.</p>
+                            <p style="margin-top: 16px;">
+                                <button class="btn btn-primary" onclick="showJoinLigaModal()">
+                                    <i class="fas fa-sign-in-alt"></i> Unirse a una Liga
+                                </button>
+                            </p>
                         </div>
                     `;
                 }
@@ -1930,6 +1935,11 @@ async function loadPronosticosLigaSelector() {
                         <i class="fas fa-users"></i>
                         <h3>No estás en ninguna liga</h3>
                         <p>Únete a una liga primero para poder hacer pronósticos.</p>
+                        <p style="margin-top: 16px;">
+                            <button class="btn btn-primary" onclick="showJoinLigaModal()">
+                                <i class="fas fa-sign-in-alt"></i> Unirse a una Liga
+                            </button>
+                        </p>
                     </div>
                 `;
             }
