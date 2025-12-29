@@ -773,8 +773,29 @@ function updateAdminVisibility() {
 // NAVEGACIÓN
 // ========================================
 function showLandingPage() {
-    document.getElementById('landing-page').classList.add('active');
-    document.getElementById('dashboard-page').classList.remove('active');
+    console.log('🔄 showLandingPage() llamado');
+    const landingPage = document.getElementById('landing-page');
+    const dashboardPage = document.getElementById('dashboard-page');
+    
+    if (!landingPage || !dashboardPage) {
+        console.error('❌ Elementos de página no encontrados');
+        console.error('Landing page existe:', !!landingPage);
+        console.error('Dashboard page existe:', !!dashboardPage);
+        return;
+    }
+    
+    console.log('📄 Cambiando de dashboard a landing page...');
+    
+    // Mostrar landing page
+    landingPage.classList.add('active');
+    landingPage.style.display = 'block';
+    
+    // Ocultar dashboard
+    dashboardPage.classList.remove('active');
+    dashboardPage.style.display = 'none';
+    
+    // Limpiar cualquier contenido que pueda estar visible
+    console.log('✅ Landing page mostrada, dashboard oculto');
 }
 
 async function showDashboard() {
