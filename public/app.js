@@ -63,8 +63,10 @@ async function initializeApp() {
         } else if (event === 'SIGNED_OUT') {
             currentUser = null;
             isAdmin = false;
-            currentCompetitionId = 1;
+            currentCompetitionId = null;
             currentCompetition = null;
+            // Limpiar cualquier estado guardado
+            localStorage.removeItem('active_competition_id');
             showLandingPage();
         }
     });
@@ -2230,20 +2232,31 @@ async function showCompetitionSelectorModal() {
         return;
     }
 
+    // Cerrar otros modales pero NO este
+    document.querySelectorAll('.modal').forEach(m => {
+        if (m.id !== 'competition-selector-modal') {
+            m.classList.remove('active');
+        }
+    });
+
     console.log('✅ Modal encontrado, cargando competiciones...');
     // Cargar competiciones en el modal
     await loadCompetitionsForModal();
 
     // Mostrar modal (no se puede cerrar hasta seleccionar una competición)
     modal.classList.add('active');
+    modal.style.display = 'flex'; // Forzar display para asegurar visibilidad
     console.log('✅ Modal marcado como activo, clases:', modal.className);
     
     // Verificar que se haya añadido la clase
     setTimeout(() => {
         if (!modal.classList.contains('active')) {
-            console.error('❌ La clase active no se añadió al modal');
+            console.error('❌ La clase active no se añadió al modal, reintentando...');
+            // Intentar forzar de nuevo
+            modal.classList.add('active');
+            modal.style.display = 'flex';
         } else {
-            console.log('✅ Modal activo correctamente');
+            console.log('✅ Modal activo correctamente, visible:', modal.style.display);
         }
     }, 100);
 }
