@@ -46,8 +46,11 @@ async function initializeApp() {
         currentUser = session.user;
         await loadUserProfile();
         // Cargar competición activa antes de mostrar dashboard
-        await loadActiveCompetition();
-        await showDashboard();
+        const competitionSelected = await loadActiveCompetition();
+        // Solo mostrar dashboard si se seleccionó una competición o no hay múltiples activas
+        if (competitionSelected !== false) {
+            await showDashboard();
+        }
     }
 
     // Listener para cambios de autenticación (usar la variable local supabase)
@@ -56,8 +59,11 @@ async function initializeApp() {
             currentUser = session.user;
             await loadUserProfile();
             // Cargar competición activa antes de mostrar dashboard
-            await loadActiveCompetition();
-            await showDashboard();
+            const competitionSelected = await loadActiveCompetition();
+            // Solo mostrar dashboard si se seleccionó una competición o no hay múltiples activas
+            if (competitionSelected !== false) {
+                await showDashboard();
+            }
         } else if (event === 'SIGNED_OUT') {
             currentUser = null;
             isAdmin = false;
@@ -2132,10 +2138,37 @@ async function loadActiveCompetition() {
         }
 
         // Si hay más de una competición activa, mostrar modal para seleccionar
+        // NO cargar ninguna competición automáticamente, esperar a que el usuario elija
         if (activeCompetitions && activeCompetitions.length > 1) {
             console.log(`📊 ${activeCompetitions.length} competiciones activas encontradas, mostrando selector`);
+            
+            // Verificar si hay una competición guardada válida
+            const { data: configData } = await executeQueryWithTimeout(() =>
+                supabase
+                    .from('config')
+                    .select('value')
+                    .eq('key', 'active_competition_id')
+                    .single()
+            , 5000).catch(() => ({ data: null }));
+            
+            const savedId = configData?.value ? parseInt(configData.value) : 
+                           (localStorage.getItem('active_competition_id') ? parseInt(localStorage.getItem('active_competition_id')) : null);
+            
+            // Si hay una competición guardada y está entre las activas, usarla temporalmente pero mostrar el modal
+            if (savedId && activeCompetitions.some(c => c.id === savedId)) {
+                currentCompetitionId = savedId;
+                await loadCompetitionData(savedId);
+                console.log(`✅ Competición guardada válida encontrada: ${currentCompetition?.name}, mostrando modal para confirmar/cambiar`);
+            } else {
+                // No hay competición guardada válida, resetear
+                currentCompetitionId = null;
+                currentCompetition = null;
+                console.log('⚠️ No hay competición guardada válida, usuario debe seleccionar');
+            }
+            
             await showCompetitionSelectorModal();
-            return;
+            // Retornar false para indicar que se está esperando selección del usuario
+            return false;
         }
 
         // Si hay 0 o 1 competición activa, usar la guardada o la única disponible
@@ -2180,10 +2213,15 @@ async function loadActiveCompetition() {
             }
         } else if (activeCompetitions && activeCompetitions.length === 0) {
             console.warn('⚠️ No hay competiciones activas');
+            return false;
         }
+        
+        // Retornar true si se cargó una competición correctamente
+        return true;
         
     } catch (error) {
         console.warn('⚠️ Error cargando competición activa:', error);
+        return false;
     }
 }
 
