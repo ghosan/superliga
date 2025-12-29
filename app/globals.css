@@ -600,39 +600,85 @@ body {
     color: var(--blue-400);
 }
 
-.nav-competition-selector {
-    margin-right: 16px;
+/* ========================================
+   MODAL DE SELECCIÓN DE COMPETICIÓN
+   ======================================== */
+.competitions-list-modal {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
-.competition-select {
-    padding: 6px 12px;
-    border: 1px solid var(--slate-600);
+.competition-card-modal {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: var(--slate-800);
+    border: 2px solid var(--slate-700);
     border-radius: var(--rounded-lg);
-    font-size: 13px;
-    font-weight: 600;
-    color: white;
-    background: var(--slate-700);
     cursor: pointer;
     transition: var(--transition);
-    min-width: 140px;
 }
 
-.competition-select:hover {
-    background: var(--slate-600);
-    border-color: var(--slate-500);
-}
-
-.competition-select:focus {
-    outline: none;
+.competition-card-modal:hover {
+    background: var(--slate-700);
     border-color: var(--blue-500);
-    background: var(--slate-600);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    transform: translateX(4px);
 }
 
-.competition-select option {
-    background: var(--slate-800);
+.competition-card-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--blue-600);
+    border-radius: var(--rounded-full);
     color: white;
-    padding: 8px;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.competition-card-content {
+    flex: 1;
+}
+
+.competition-card-content h3 {
+    margin: 0 0 4px 0;
+    color: white;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.competition-card-content p {
+    margin: 0;
+    color: var(--slate-400);
+    font-size: 14px;
+}
+
+.competition-card-arrow {
+    color: var(--slate-500);
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.competition-card-modal:hover .competition-card-arrow {
+    color: var(--blue-400);
+    transform: translateX(4px);
+}
+
+/* El modal de competición no debe tener botón de cerrar (no se puede cerrar sin seleccionar) */
+#competition-selector-modal .modal-close {
+    display: none;
+}
+
+#competition-selector-modal.modal.active {
+    pointer-events: auto;
+}
+
+#competition-selector-modal .modal-content {
+    max-width: 500px;
 }
 
 .nav-progress {

@@ -297,15 +297,6 @@ export default function Home() {
             <i className="fas fa-futbol"></i>
             <span>SuperLiga</span>
           </div>
-          <div className="nav-competition-selector">
-            <select id="competition-selector" className="competition-select" onChange={() => {
-              if (typeof window !== 'undefined' && (window as any).onCompetitionChange) {
-                (window as any).onCompetitionChange();
-              }
-            }}>
-              <option value="">Cargando competiciones...</option>
-            </select>
-          </div>
           <div className="nav-progress">
             <span id="progress-percentage">0%</span>
             <span className="progress-label">Pronósticos</span>
@@ -1228,6 +1219,24 @@ O formato CSV:
                 <i className="fas fa-sign-in-alt"></i> Unirse a Liga
               </button>
             </form>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal de Selección de Competición */}
+      <div id="competition-selector-modal" className="modal">
+        <div className="modal-content">
+          <div className="modal-header">
+            <h2><i className="fas fa-trophy"></i> Seleccionar Competición</h2>
+            <p className="modal-subtitle">Selecciona la competición en la que quieres participar</p>
+          </div>
+          <div className="modal-body">
+            <div id="competitions-list-modal" className="competitions-list-modal">
+              <div className="loading">
+                <i className="fas fa-spinner fa-spin"></i>
+                <p>Cargando competiciones...</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

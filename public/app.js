@@ -45,6 +45,8 @@ async function initializeApp() {
     if (session) {
         currentUser = session.user;
         await loadUserProfile();
+        // Cargar competición activa antes de mostrar dashboard
+        await loadActiveCompetition();
         await showDashboard();
     }
 
@@ -53,16 +55,17 @@ async function initializeApp() {
         if (event === 'SIGNED_IN' && session) {
             currentUser = session.user;
             await loadUserProfile();
+            // Cargar competición activa antes de mostrar dashboard
+            await loadActiveCompetition();
             await showDashboard();
         } else if (event === 'SIGNED_OUT') {
             currentUser = null;
             isAdmin = false;
+            currentCompetitionId = 1;
+            currentCompetition = null;
             showLandingPage();
         }
     });
-
-    // Cargar competición activa primero (antes de cargar datos)
-    await loadActiveCompetition();
     
     // Configurar navegación
     setupNavigation();
@@ -2111,10 +2114,8 @@ function changeJornada(delta) {
 async function loadActiveCompetition() {
     const supabase = getSupabase();
     if (!supabase) {
-        // Si no hay Supabase, usar valor por defecto del localStorage
-        const saved = localStorage.getItem('active_competition_id');
-        currentCompetitionId = saved ? parseInt(saved) : 1;
-        await loadCompetitionSelector();
+        // Si no hay Supabase, mostrar modal para seleccionar
+        await showCompetitionSelectorModal();
         return;
     }
 
@@ -2128,26 +2129,42 @@ async function loadActiveCompetition() {
                 .single()
         , 5000).catch(() => ({ data: null, error: null }));
 
+        let savedCompetitionId = null;
+
         if (data && data.value) {
-            currentCompetitionId = parseInt(data.value) || 1;
+            savedCompetitionId = parseInt(data.value) || null;
         } else {
             // Intentar desde localStorage
             const saved = localStorage.getItem('active_competition_id');
-            currentCompetitionId = saved ? parseInt(saved) : 1;
-            // Guardar en config para futuras veces
-            await saveActiveCompetitionToConfig(currentCompetitionId);
+            savedCompetitionId = saved ? parseInt(saved) : null;
         }
 
-        // Cargar datos de la competición
-        await loadCompetitionData(currentCompetitionId);
-        
-        // Cargar selector
-        await loadCompetitionSelector();
+        // Si hay competición guardada, cargarla
+        if (savedCompetitionId) {
+            currentCompetitionId = savedCompetitionId;
+            // Verificar que la competición existe
+            await loadCompetitionData(currentCompetitionId);
+            
+            // Si la competición no existe o no está activa, mostrar modal
+            if (!currentCompetition || !currentCompetition.is_active) {
+                console.warn('⚠️ Competición guardada no existe o está inactiva, mostrando selector');
+                await showCompetitionSelectorModal();
+                return;
+            }
+            
+            // Competición válida, guardar en config si es necesario
+            if (!data || !data.value) {
+                await saveActiveCompetitionToConfig(currentCompetitionId);
+            }
+        } else {
+            // No hay competición guardada, mostrar modal
+            await showCompetitionSelectorModal();
+            return;
+        }
         
     } catch (error) {
-        console.warn('⚠️ Error cargando competición activa, usando valor por defecto:', error);
-        currentCompetitionId = 1;
-        await loadCompetitionSelector();
+        console.warn('⚠️ Error cargando competición activa, mostrando selector:', error);
+        await showCompetitionSelectorModal();
     }
 }
 
@@ -2188,47 +2205,133 @@ async function loadCompetitionData(competitionId) {
 }
 
 /**
- * Cargar selector de competiciones en el header
+ * Mostrar modal de selección de competición
  */
-async function loadCompetitionSelector() {
-    const selector = document.getElementById('competition-selector');
-    if (!selector) return;
+async function showCompetitionSelectorModal() {
+    const modal = document.getElementById('competition-selector-modal');
+    if (!modal) {
+        console.error('❌ Modal de selección de competición no encontrado');
+        return;
+    }
 
-    selector.innerHTML = '<option value="">Cargando competiciones...</option>';
+    // Cargar competiciones en el modal
+    await loadCompetitionsForModal();
+
+    // Mostrar modal (no se puede cerrar hasta seleccionar una competición)
+    modal.classList.add('active');
+}
+
+/**
+ * Cargar competiciones en el modal de selección
+ */
+async function loadCompetitionsForModal() {
+    const container = document.getElementById('competitions-list-modal');
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Cargando competiciones...</div>';
 
     const supabase = getSupabase();
     if (!supabase) {
-        selector.innerHTML = '<option value="1">La Liga</option>';
-        selector.value = '1';
+        container.innerHTML = '<p style="color: var(--red-500); text-align: center;">Error de conexión</p>';
         return;
     }
 
     try {
-        // Intentar cargar competiciones desde la base de datos
+        // Cargar competiciones activas
         const { data: competitions, error } = await executeQueryWithTimeout(() =>
             supabase
                 .from('competitions')
-                .select('id, name, is_active')
+                .select('id, name, description, is_active')
                 .eq('is_active', true)
                 .order('id', { ascending: true })
         , 5000).catch(() => ({ data: null, error: null }));
 
-        if (competitions && competitions.length > 0) {
-            selector.innerHTML = competitions.map(comp => 
-                `<option value="${comp.id}">${escapeHtml(comp.name)}</option>`
-            ).join('');
-            
-            // Seleccionar la competición activa
-            selector.value = currentCompetitionId.toString();
-        } else {
-            // Si no hay competiciones, mostrar solo La Liga (por defecto)
-            selector.innerHTML = '<option value="1">La Liga</option>';
-            selector.value = '1';
+        if (error) {
+            console.error('Error cargando competiciones:', error);
+            container.innerHTML = '<p style="color: var(--red-500); text-align: center;">Error al cargar competiciones</p>';
+            return;
+        }
+
+        if (!competitions || competitions.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-trophy"></i>
+                    <h3>No hay competiciones disponibles</h3>
+                    <p>Por favor, contacta al administrador.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Renderizar tarjetas de competiciones
+        container.innerHTML = competitions.map(comp => `
+            <div class="competition-card-modal" onclick="selectCompetition(${comp.id}, '${escapeHtml(comp.name)}')">
+                <div class="competition-card-icon">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <div class="competition-card-content">
+                    <h3>${escapeHtml(comp.name)}</h3>
+                    ${comp.description ? `<p>${escapeHtml(comp.description)}</p>` : ''}
+                </div>
+                <div class="competition-card-arrow">
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('Error:', error);
+        container.innerHTML = '<p style="color: var(--red-500); text-align: center;">Error al cargar competiciones</p>';
+    }
+}
+
+/**
+ * Seleccionar una competición desde el modal
+ */
+async function selectCompetition(competitionId, competitionName) {
+    const supabase = getSupabase();
+    if (!supabase) {
+        showNotification('Error de conexión', 'error');
+        return;
+    }
+
+    try {
+        // Guardar competición seleccionada
+        currentCompetitionId = competitionId;
+        await saveActiveCompetitionToConfig(competitionId);
+        await loadCompetitionData(competitionId);
+
+        // Cerrar modal
+        const modal = document.getElementById('competition-selector-modal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+
+        showNotification(`Competición seleccionada: ${competitionName}`, 'success');
+
+        // Recargar datos según la página actual
+        const activePage = document.querySelector('.section.active')?.id;
+        
+        if (activePage === 'dashboard-section') {
+            if (typeof loadDashboard === 'function') {
+                loadDashboard();
+            }
+        } else if (activePage === 'pronosticos-section') {
+            if (typeof loadPronosticosLigaSelector === 'function') {
+                loadPronosticosLigaSelector();
+            }
+        } else if (activePage === 'clasificaciones-section') {
+            if (typeof loadLigasForSelect === 'function') {
+                loadLigasForSelect();
+            }
+        } else if (activePage === 'admin-section') {
+            if (typeof loadAdminData === 'function') {
+                loadAdminData();
+            }
         }
     } catch (error) {
-        console.warn('⚠️ Error cargando competiciones, usando valor por defecto:', error);
-        selector.innerHTML = '<option value="1">La Liga</option>';
-        selector.value = '1';
+        console.error('Error seleccionando competición:', error);
+        showNotification('Error al seleccionar competición', 'error');
     }
 }
 
@@ -2264,46 +2367,10 @@ async function saveActiveCompetitionToConfig(competitionId) {
 }
 
 /**
- * Manejar cambio de competición
+ * Cambiar competición (mostrar modal para seleccionar otra)
  */
-async function onCompetitionChange() {
-    const selector = document.getElementById('competition-selector');
-    if (!selector || !selector.value) return;
-
-    const newCompetitionId = parseInt(selector.value);
-    
-    if (newCompetitionId === currentCompetitionId) {
-        return; // No hacer nada si es la misma
-    }
-
-    // Guardar nueva competición activa
-    currentCompetitionId = newCompetitionId;
-    await saveActiveCompetitionToConfig(newCompetitionId);
-    await loadCompetitionData(newCompetitionId);
-
-    // Recargar todos los datos con la nueva competición
-    showNotification(`Competición cambiada a: ${currentCompetition?.name || 'La Liga'}`, 'success');
-    
-    // Recargar datos según la página actual
-    const activePage = document.querySelector('.section.active')?.id;
-    
-    if (activePage === 'dashboard-section') {
-        if (typeof loadDashboard === 'function') {
-            loadDashboard();
-        }
-    } else if (activePage === 'pronosticos-section') {
-        if (typeof loadPronosticosLigaSelector === 'function') {
-            loadPronosticosLigaSelector();
-        }
-    } else if (activePage === 'clasificaciones-section') {
-        if (typeof loadLigasForSelect === 'function') {
-            loadLigasForSelect();
-        }
-    } else if (activePage === 'admin-section') {
-        if (typeof loadAdminData === 'function') {
-            loadAdminData();
-        }
-    }
+async function changeCompetition() {
+    await showCompetitionSelectorModal();
 }
 
 // ========================================
@@ -5406,7 +5473,8 @@ if (typeof window !== 'undefined') {
     window.deleteLiga = deleteLiga;
     window.onDashboardStatisticsLigaChange = onDashboardStatisticsLigaChange;
     window.onDashboardClassificationLigaChange = onDashboardClassificationLigaChange;
-    window.onCompetitionChange = onCompetitionChange;
+    window.changeCompetition = changeCompetition;
+    window.selectCompetition = selectCompetition;
     window.loadCompetitionsList = loadCompetitionsList;
     window.showCreateCompetitionModal = showCreateCompetitionModal;
     window.createCompetition = createCompetition;
