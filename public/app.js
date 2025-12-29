@@ -2133,11 +2133,11 @@ async function loadActiveCompetition() {
             console.warn('⚠️ Error contando competiciones activas:', countError);
         }
 
-        // Si hay más de una competición activa, mostrar modal para seleccionar
+        // Si hay más de una competición activa, SIEMPRE mostrar modal para seleccionar
         if (activeCompetitions && activeCompetitions.length > 1) {
             console.log(`📊 ${activeCompetitions.length} competiciones activas encontradas, mostrando selector`);
             
-            // Verificar si hay una competición guardada válida
+            // Verificar si hay una competición guardada válida (solo para mostrar como seleccionada en el modal)
             const { data: configData } = await executeQueryWithTimeout(() =>
                 supabase
                     .from('config')
@@ -2149,19 +2149,21 @@ async function loadActiveCompetition() {
             const savedId = configData?.value ? parseInt(configData.value) : 
                            (localStorage.getItem('active_competition_id') ? parseInt(localStorage.getItem('active_competition_id')) : null);
             
-            // Si hay una competición guardada y está entre las activas, usarla temporalmente pero mostrar el modal
+            // Si hay una competición guardada y está entre las activas, usarla temporalmente para mostrar datos
+            // pero SIEMPRE mostrar el modal para que el usuario confirme o cambie
             if (savedId && activeCompetitions.some(c => c.id === savedId)) {
                 currentCompetitionId = savedId;
                 await loadCompetitionData(savedId);
-                console.log(`✅ Competición guardada válida encontrada: ${currentCompetition?.name}, mostrando modal para confirmar/cambiar`);
+                console.log(`✅ Competición guardada encontrada: ${currentCompetition?.name}, mostrando modal para confirmar/cambiar`);
             } else {
-                // No hay competición guardada válida, usar la primera activa temporalmente
+                // No hay competición guardada válida, usar la primera activa temporalmente solo para datos
                 currentCompetitionId = activeCompetitions[0].id;
                 await loadCompetitionData(currentCompetitionId);
                 console.log('⚠️ No hay competición guardada, usando primera activa temporalmente, mostrando modal para seleccionar');
             }
             
-            // Mostrar modal sobre el dashboard (que ya está visible)
+            // SIEMPRE mostrar modal sobre el dashboard (que ya está visible)
+            // El usuario debe seleccionar cada vez que inicia sesión
             await showCompetitionSelectorModal();
             return true;
         }
@@ -2414,14 +2416,19 @@ async function selectCompetition(competitionId, competitionName) {
  * Guardar competición activa en config y localStorage
  */
 async function saveActiveCompetitionToConfig(competitionId) {
-    // Guardar en localStorage inmediatamente
-    localStorage.setItem('active_competition_id', competitionId.toString());
+    // NO guardar en localStorage/config porque queremos que el modal aparezca cada vez
+    // La competición solo se mantiene durante la sesión actual
+    // localStorage.setItem('active_competition_id', competitionId.toString()); // COMENTADO: no guardar
 
     const supabase = getSupabase();
     if (!supabase) return;
 
+    // NO guardar en config para que el modal aparezca cada vez que el usuario inicia sesión
+    // Si hay múltiples competiciones activas, el usuario debe seleccionar cada vez
     try {
-        // Guardar en config (solo si es admin)
+        // Solo guardar en config si es admin Y queremos persistencia
+        // Por ahora, NO guardamos para que aparezca el modal cada vez
+        /*
         if (isAdmin) {
             await executeQueryWithTimeout(() =>
                 supabase
@@ -2436,6 +2443,7 @@ async function saveActiveCompetitionToConfig(competitionId) {
                 console.warn('⚠️ No se pudo guardar competición activa en config:', err);
             });
         }
+        */
     } catch (error) {
         console.warn('⚠️ Error guardando competición activa:', error);
     }
