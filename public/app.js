@@ -2384,24 +2384,34 @@ async function selectCompetition(competitionId, competitionName) {
 
         showNotification(`Competición seleccionada: ${competitionName}`, 'success');
 
-        // Recargar datos según la página actual
-        const activePage = document.querySelector('.section.active')?.id;
+        // Si no se ha mostrado el dashboard todavía, mostrarlo ahora
+        const dashboardPage = document.getElementById('dashboard-page');
+        const landingPage = document.getElementById('landing-page');
         
-        if (activePage === 'dashboard-section') {
-            if (typeof loadDashboard === 'function') {
-                loadDashboard();
-            }
-        } else if (activePage === 'pronosticos-section') {
-            if (typeof loadPronosticosLigaSelector === 'function') {
-                loadPronosticosLigaSelector();
-            }
-        } else if (activePage === 'clasificaciones-section') {
-            if (typeof loadLigasForSelect === 'function') {
-                loadLigasForSelect();
-            }
-        } else if (activePage === 'admin-section') {
-            if (typeof loadAdminData === 'function') {
-                loadAdminData();
+        if (dashboardPage && landingPage && !dashboardPage.classList.contains('active')) {
+            // Mostrar dashboard por primera vez (después de seleccionar competición)
+            console.log('✅ Mostrando dashboard después de seleccionar competición');
+            await showDashboard();
+        } else {
+            // Recargar datos según la página actual (si ya se estaba usando la app)
+            const activePage = document.querySelector('.section.active')?.id;
+            
+            if (activePage === 'dashboard-section') {
+                if (typeof loadDashboard === 'function') {
+                    loadDashboard();
+                }
+            } else if (activePage === 'pronosticos-section') {
+                if (typeof loadPronosticosLigaSelector === 'function') {
+                    loadPronosticosLigaSelector();
+                }
+            } else if (activePage === 'clasificaciones-section') {
+                if (typeof loadLigasForSelect === 'function') {
+                    loadLigasForSelect();
+                }
+            } else if (activePage === 'admin-section') {
+                if (typeof loadAdminData === 'function') {
+                    loadAdminData();
+                }
             }
         }
     } catch (error) {
