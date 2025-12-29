@@ -1242,6 +1242,41 @@ async function loadDashboardClassification(ligaId) {
             }))
             .sort((a, b) => b.points - a.points);
 
+        // Obtener posiciones anteriores desde localStorage
+        const storageKey = `classification_positions_liga_${ligaId}`;
+        const previousPositions = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+        // Crear mapa de posiciones actuales por userId
+        const currentPositions = {};
+        classification.forEach((user, index) => {
+            currentPositions[user.userId] = index + 1;
+        });
+
+        // Función para determinar el cambio de posición
+        const getPositionChange = (userId) => {
+            const currentPos = currentPositions[userId];
+            const previousPos = previousPositions[userId];
+            
+            if (!previousPos || previousPos === 0) {
+                // Primera vez que se carga, no hay comparación
+                return 'same';
+            }
+            
+            if (currentPos < previousPos) {
+                // Subió de posición (número menor = mejor posición)
+                return 'up';
+            } else if (currentPos > previousPos) {
+                // Bajó de posición (número mayor = peor posición)
+                return 'down';
+            } else {
+                // Se mantuvo igual
+                return 'same';
+            }
+        };
+
+        // Guardar las posiciones actuales para la próxima vez
+        localStorage.setItem(storageKey, JSON.stringify(currentPositions));
+
         // Renderizar clasificación (solo mostrar top 10 para el dashboard)
         const topClassification = classification.slice(0, 10);
         
@@ -1250,9 +1285,29 @@ async function loadDashboardClassification(ligaId) {
                 ${topClassification.map((user, index) => {
                     const position = index + 1;
                     const isCurrentUser = user.userId === currentUser.id;
+                    const positionChange = getPositionChange(user.userId);
+                    
+                    // Determinar el icono y clase según el cambio
+                    let changeIcon = '';
+                    let changeClass = '';
+                    
+                    if (positionChange === 'up') {
+                        changeIcon = '<i class="fas fa-arrow-up"></i>';
+                        changeClass = 'position-change-up';
+                    } else if (positionChange === 'down') {
+                        changeIcon = '<i class="fas fa-arrow-down"></i>';
+                        changeClass = 'position-change-down';
+                    } else {
+                        changeIcon = '<i class="fas fa-minus"></i>';
+                        changeClass = 'position-change-same';
+                    }
+                    
                     return `
                         <div class="classification-row ${isCurrentUser ? 'current-user' : ''}">
-                            <span class="position">${position}</span>
+                            <span class="position">
+                                ${position}
+                                ${previousPositions[user.userId] ? `<span class="position-change ${changeClass}">${changeIcon}</span>` : ''}
+                            </span>
                             <span class="user-name">${escapeHtml(user.name)}</span>
                             <span class="points">${user.points} pts</span>
                         </div>
