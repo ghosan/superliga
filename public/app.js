@@ -2066,34 +2066,84 @@ async function loadMatches() {
         console.log('✅ Partidos renderizados');
         
         // Verificar que los selectores estén habilitados/deshabilitados correctamente
+        // Usar la misma lógica que createMatchCard para mantener consistencia
         let enabledCount = 0;
         let disabledCount = 0;
+        const MARGIN_MINUTES = 5;
+        const marginMs = MARGIN_MINUTES * 60 * 1000;
+        
         matches.forEach(match => {
-            const matchDate = new Date(match.match_date);
+            let matchDate;
+            try {
+                const dateStr = String(match.match_date);
+                // Parsear fecha igual que en createMatchCard
+                if (dateStr.includes('T') && !dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.includes('-', 10)) {
+                    matchDate = new Date(dateStr + 'Z');
+                } else {
+                    matchDate = new Date(dateStr);
+                }
+                if (isNaN(matchDate.getTime())) {
+                    if (!dateStr.includes('Z') && !dateStr.includes('+')) {
+                        matchDate = new Date(dateStr + 'Z');
+                    } else {
+                        matchDate = new Date(dateStr);
+                    }
+                }
+                if (isNaN(matchDate.getTime())) {
+                    matchDate = new Date(Date.now() + (24 * 60 * 60 * 1000)); // Fallback: mañana
+                }
+            } catch (e) {
+                matchDate = new Date(Date.now() + (24 * 60 * 60 * 1000)); // Fallback: mañana
+            }
+            
             const now = new Date();
-            const shouldBeLocked = matchDate.getTime() <= now.getTime();
+            const matchTimestamp = matchDate.getTime();
+            const nowTimestamp = now.getTime();
+            
+            // Usar la MISMA lógica que createMatchCard
+            const shouldBeLocked = (matchTimestamp - marginMs) <= nowTimestamp;
             
             const homeSelect = document.getElementById(`home-${match.id}`);
             const awaySelect = document.getElementById(`away-${match.id}`);
             
             if (homeSelect && awaySelect) {
-                const isActuallyDisabled = homeSelect.disabled && awaySelect.disabled;
+                const isActuallyDisabled = homeSelect.disabled || awaySelect.disabled;
                 
                 if (shouldBeLocked && !isActuallyDisabled) {
-                    console.warn(`⚠️ Partido ${match.id} debería estar bloqueado pero los selectores están habilitados`);
-                } else if (!shouldBeLocked && isActuallyDisabled) {
-                    console.error(`❌ Partido ${match.id} NO debería estar bloqueado pero los selectores están deshabilitados!`, {
+                    console.warn(`⚠️ Partido ${match.id} debería estar bloqueado pero los selectores están habilitados`, {
                         matchDate: matchDate.toISOString(),
                         now: now.toISOString(),
-                        diff: now.getTime() - matchDate.getTime()
+                        diffMinutes: Math.round((matchTimestamp - nowTimestamp) / (60 * 1000))
+                    });
+                    // Forzar bloqueo si corresponde
+                    homeSelect.disabled = true;
+                    awaySelect.disabled = true;
+                } else if (!shouldBeLocked && isActuallyDisabled) {
+                    const diffMinutes = Math.round((matchTimestamp - nowTimestamp) / (60 * 1000));
+                    console.error(`❌ Partido ${match.id} NO debería estar bloqueado pero los selectores están deshabilitados!`, {
+                        matchDate: matchDate.toISOString(),
+                        matchDateLocal: matchDate.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }),
+                        now: now.toISOString(),
+                        nowLocal: now.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }),
+                        diffMinutes: diffMinutes,
+                        diffHours: (diffMinutes / 60).toFixed(1),
+                        diffDays: (diffMinutes / (60 * 24)).toFixed(1)
                     });
                     // Forzar habilitación si el partido es futuro
                     homeSelect.disabled = false;
                     awaySelect.disabled = false;
+                    homeSelect.removeAttribute('disabled');
+                    awaySelect.removeAttribute('disabled');
+                    
+                    // También remover la clase locked de la fila si existe
+                    const row = document.querySelector(`[data-match-id="${match.id}"]`);
+                    if (row) {
+                        row.classList.remove('locked');
+                    }
                     enabledCount++;
                 }
                 
-                if (isActuallyDisabled) disabledCount++;
+                if (homeSelect.disabled || awaySelect.disabled) disabledCount++;
                 else enabledCount++;
             }
         });
