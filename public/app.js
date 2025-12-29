@@ -45,12 +45,10 @@ async function initializeApp() {
     if (session) {
         currentUser = session.user;
         await loadUserProfile();
-        // Cargar competición activa antes de mostrar dashboard
-        const competitionSelected = await loadActiveCompetition();
-        // Solo mostrar dashboard si se seleccionó una competición o no hay múltiples activas
-        if (competitionSelected !== false) {
-            await showDashboard();
-        }
+        // Primero mostrar el dashboard
+        await showDashboard();
+        // Después cargar competición activa (mostrará modal si hay múltiples)
+        await loadActiveCompetition();
     }
 
     // Listener para cambios de autenticación (usar la variable local supabase)
@@ -58,12 +56,10 @@ async function initializeApp() {
         if (event === 'SIGNED_IN' && session) {
             currentUser = session.user;
             await loadUserProfile();
-            // Cargar competición activa antes de mostrar dashboard
-            const competitionSelected = await loadActiveCompetition();
-            // Solo mostrar dashboard si se seleccionó una competición o no hay múltiples activas
-            if (competitionSelected !== false) {
-                await showDashboard();
-            }
+            // Primero mostrar el dashboard
+            await showDashboard();
+            // Después cargar competición activa (mostrará modal si hay múltiples)
+            await loadActiveCompetition();
         } else if (event === 'SIGNED_OUT') {
             currentUser = null;
             isAdmin = false;
@@ -2138,7 +2134,6 @@ async function loadActiveCompetition() {
         }
 
         // Si hay más de una competición activa, mostrar modal para seleccionar
-        // NO cargar ninguna competición automáticamente, esperar a que el usuario elija
         if (activeCompetitions && activeCompetitions.length > 1) {
             console.log(`📊 ${activeCompetitions.length} competiciones activas encontradas, mostrando selector`);
             
@@ -2160,15 +2155,15 @@ async function loadActiveCompetition() {
                 await loadCompetitionData(savedId);
                 console.log(`✅ Competición guardada válida encontrada: ${currentCompetition?.name}, mostrando modal para confirmar/cambiar`);
             } else {
-                // No hay competición guardada válida, resetear
-                currentCompetitionId = null;
-                currentCompetition = null;
-                console.log('⚠️ No hay competición guardada válida, usuario debe seleccionar');
+                // No hay competición guardada válida, usar la primera activa temporalmente
+                currentCompetitionId = activeCompetitions[0].id;
+                await loadCompetitionData(currentCompetitionId);
+                console.log('⚠️ No hay competición guardada, usando primera activa temporalmente, mostrando modal para seleccionar');
             }
             
+            // Mostrar modal sobre el dashboard (que ya está visible)
             await showCompetitionSelectorModal();
-            // Retornar false para indicar que se está esperando selección del usuario
-            return false;
+            return true;
         }
 
         // Si hay 0 o 1 competición activa, usar la guardada o la única disponible
@@ -2213,7 +2208,7 @@ async function loadActiveCompetition() {
             }
         } else if (activeCompetitions && activeCompetitions.length === 0) {
             console.warn('⚠️ No hay competiciones activas');
-            return false;
+            return true;
         }
         
         // Retornar true si se cargó una competición correctamente
@@ -2384,34 +2379,29 @@ async function selectCompetition(competitionId, competitionName) {
 
         showNotification(`Competición seleccionada: ${competitionName}`, 'success');
 
-        // Si no se ha mostrado el dashboard todavía, mostrarlo ahora
-        const dashboardPage = document.getElementById('dashboard-page');
-        const landingPage = document.getElementById('landing-page');
+        // Recargar datos según la página actual (el dashboard ya está visible)
+        const activePage = document.querySelector('.section.active')?.id;
         
-        if (dashboardPage && landingPage && !dashboardPage.classList.contains('active')) {
-            // Mostrar dashboard por primera vez (después de seleccionar competición)
-            console.log('✅ Mostrando dashboard después de seleccionar competición');
-            await showDashboard();
+        if (activePage === 'dashboard-section') {
+            if (typeof loadDashboard === 'function') {
+                loadDashboard();
+            }
+        } else if (activePage === 'pronosticos-section') {
+            if (typeof loadPronosticosLigaSelector === 'function') {
+                loadPronosticosLigaSelector();
+            }
+        } else if (activePage === 'clasificaciones-section') {
+            if (typeof loadLigasForSelect === 'function') {
+                loadLigasForSelect();
+            }
+        } else if (activePage === 'admin-section') {
+            if (typeof loadAdminData === 'function') {
+                loadAdminData();
+            }
         } else {
-            // Recargar datos según la página actual (si ya se estaba usando la app)
-            const activePage = document.querySelector('.section.active')?.id;
-            
-            if (activePage === 'dashboard-section') {
-                if (typeof loadDashboard === 'function') {
-                    loadDashboard();
-                }
-            } else if (activePage === 'pronosticos-section') {
-                if (typeof loadPronosticosLigaSelector === 'function') {
-                    loadPronosticosLigaSelector();
-                }
-            } else if (activePage === 'clasificaciones-section') {
-                if (typeof loadLigasForSelect === 'function') {
-                    loadLigasForSelect();
-                }
-            } else if (activePage === 'admin-section') {
-                if (typeof loadAdminData === 'function') {
-                    loadAdminData();
-                }
+            // Si no hay página activa, cargar dashboard
+            if (typeof loadDashboard === 'function') {
+                loadDashboard();
             }
         }
     } catch (error) {
