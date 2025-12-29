@@ -83,3 +83,4 @@ Verifica que estén configuradas en Vercel:
 - [ ] Variables de entorno en Vercel (verificar manualmente)
 - [ ] HTTPS forzado (Vercel lo hace automáticamente)
 
+

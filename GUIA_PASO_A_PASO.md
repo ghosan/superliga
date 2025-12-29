@@ -296,3 +296,4 @@ Cuando hayas completado el Paso 1 (instalar dependencias), avísame y te guiaré
 **No tengas prisa, ve paso a paso y verifica cada cosa antes de continuar.**
 
 
+

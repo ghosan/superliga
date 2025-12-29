@@ -65,3 +65,4 @@ http://localhost:3000#access_token=...
 3. Intenta solicitar un nuevo email de recuperación
 4. Verifica en la consola del navegador que el código esté usando la URL correcta
 
+
