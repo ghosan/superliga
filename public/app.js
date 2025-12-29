@@ -2350,10 +2350,12 @@ async function selectCompetition(competitionId, competitionName) {
         // NO llamar a saveActiveCompetitionToConfig para que el modal aparezca cada vez
         await loadCompetitionData(competitionId);
 
-        // Cerrar modal
+        // Cerrar modal - quitar clase y resetear display
         const modal = document.getElementById('competition-selector-modal');
         if (modal) {
             modal.classList.remove('active');
+            modal.style.display = ''; // Resetear display para que el CSS lo oculte
+            console.log('✅ Modal cerrado, clases:', modal.className, 'display:', modal.style.display);
         }
 
         showNotification(`Competición seleccionada: ${competitionName}`, 'success');
