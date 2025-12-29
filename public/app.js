@@ -2146,21 +2146,11 @@ async function loadActiveCompetition() {
                     .single()
             , 5000).catch(() => ({ data: null }));
             
-            const savedId = configData?.value ? parseInt(configData.value) : 
-                           (localStorage.getItem('active_competition_id') ? parseInt(localStorage.getItem('active_competition_id')) : null);
-            
-            // Si hay una competición guardada y está entre las activas, usarla temporalmente para mostrar datos
-            // pero SIEMPRE mostrar el modal para que el usuario confirme o cambie
-            if (savedId && activeCompetitions.some(c => c.id === savedId)) {
-                currentCompetitionId = savedId;
-                await loadCompetitionData(savedId);
-                console.log(`✅ Competición guardada encontrada: ${currentCompetition?.name}, mostrando modal para confirmar/cambiar`);
-            } else {
-                // No hay competición guardada válida, usar la primera activa temporalmente solo para datos
-                currentCompetitionId = activeCompetitions[0].id;
-                await loadCompetitionData(currentCompetitionId);
-                console.log('⚠️ No hay competición guardada, usando primera activa temporalmente, mostrando modal para seleccionar');
-            }
+            // Cuando hay múltiples competiciones activas, SIEMPRE mostrar el modal cada vez que el usuario inicia sesión
+            // NO usar ninguna competición guardada, usar la primera activa temporalmente solo para mostrar datos iniciales
+            currentCompetitionId = activeCompetitions[0].id;
+            await loadCompetitionData(currentCompetitionId);
+            console.log(`✅ Usando primera competición activa temporalmente: ${currentCompetition?.name}, mostrando modal para que usuario seleccione`);
             
             // SIEMPRE mostrar modal sobre el dashboard (que ya está visible)
             // El usuario debe seleccionar cada vez que inicia sesión
@@ -2168,46 +2158,13 @@ async function loadActiveCompetition() {
             return true;
         }
 
-        // Si hay 0 o 1 competición activa, usar la guardada o la única disponible
-        let savedCompetitionId = null;
-
-        // Intentar cargar desde config
-        const { data, error } = await executeQueryWithTimeout(() =>
-            supabase
-                .from('config')
-                .select('value')
-                .eq('key', 'active_competition_id')
-                .single()
-        , 5000).catch(() => ({ data: null, error: null }));
-
-        if (data && data.value) {
-            savedCompetitionId = parseInt(data.value) || null;
-        } else {
-            // Intentar desde localStorage
-            const saved = localStorage.getItem('active_competition_id');
-            savedCompetitionId = saved ? parseInt(saved) : null;
-        }
-
-        // Si no hay competición guardada pero hay una activa, usar esa
-        if (!savedCompetitionId && activeCompetitions && activeCompetitions.length === 1) {
-            savedCompetitionId = activeCompetitions[0].id;
-        }
-
-        // Si hay competición guardada o encontrada, cargarla
-        if (savedCompetitionId) {
-            currentCompetitionId = savedCompetitionId;
+        // Si hay 0 o 1 competición activa, usar la única disponible (sin guardar para próxima sesión)
+        if (activeCompetitions && activeCompetitions.length === 1) {
+            // Solo una competición activa, cargarla automáticamente sin modal
+            currentCompetitionId = activeCompetitions[0].id;
             await loadCompetitionData(currentCompetitionId);
-            
-            // Si la competición no existe, intentar usar la primera activa
-            if (!currentCompetition && activeCompetitions && activeCompetitions.length > 0) {
-                currentCompetitionId = activeCompetitions[0].id;
-                await loadCompetitionData(currentCompetitionId);
-            }
-            
-            // Guardar en config si es necesario
-            if (!data || !data.value) {
-                await saveActiveCompetitionToConfig(currentCompetitionId);
-            }
+            console.log(`✅ Una sola competición activa: ${currentCompetition?.name}, cargando automáticamente`);
+            return true;
         } else if (activeCompetitions && activeCompetitions.length === 0) {
             console.warn('⚠️ No hay competiciones activas');
             return true;
