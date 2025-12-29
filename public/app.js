@@ -4529,7 +4529,10 @@ async function addMatch(event) {
             form.reset();
         }
         
-        // Recargar lista de partidos
+        // Recargar jornadas y lista de partidos
+        if (typeof loadJornadasSelectors === 'function') {
+            await loadJornadasSelectors('admin');
+        }
         if (typeof loadAdminMatches === 'function') {
             loadAdminMatches();
         }
@@ -4923,8 +4926,11 @@ async function importFromExcel() {
         
         clearExcelData();
         
-        // Recargar lista de partidos después de un breve delay
-        setTimeout(() => {
+        // Recargar jornadas y lista de partidos después de un breve delay
+        setTimeout(async () => {
+            if (typeof loadJornadasSelectors === 'function') {
+                await loadJornadasSelectors('admin');
+            }
             if (typeof loadAdminMatches === 'function') {
                 loadAdminMatches();
             }
@@ -5233,6 +5239,7 @@ async function deleteMatch(matchId) {
         if (error) throw error;
 
         showNotification('Partido eliminado', 'success');
+        await loadJornadasSelectors('admin');
         loadAdminMatches();
     } catch (error) {
         console.error('Error eliminando partido:', error);
@@ -6007,7 +6014,8 @@ if (typeof window !== 'undefined') {
     window.resetLiga = resetLiga;
     window.resetWeb = resetWeb;
     window.resetAllUserPoints = resetAllUserPoints;
-    window.deleteLiga = deleteLiga;
+    window.onAdminPartidosCompetitionChange = onAdminPartidosCompetitionChange;
+    window.onAdminResultadosCompetitionChange = onAdminResultadosCompetitionChange;
     window.onDashboardStatisticsLigaChange = onDashboardStatisticsLigaChange;
     window.onDashboardClassificationLigaChange = onDashboardClassificationLigaChange;
     window.changeCompetition = changeCompetition;
