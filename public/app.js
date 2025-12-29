@@ -782,14 +782,15 @@ async function loadDashboard() {
 
     try {
         // Cargar todos los datos del dashboard en paralelo
-        // Cargar selector de ligas para estadísticas primero
+        // Cargar selectores de ligas primero
         await loadDashboardStatisticsLigaSelector();
+        await loadDashboardClassificationLigaSelector();
         
         await Promise.all([
             loadDashboardSummary(),
             loadDashboardStatistics(), // Ahora puede recibir ligaId del selector
             loadDashboardJornada(),
-            loadDashboardTopLigas(),
+            loadDashboardTopLigas(), // Ahora carga clasificación según liga seleccionada
             loadDashboardActivity()
         ]);
     } catch (error) {
@@ -1126,92 +1127,153 @@ async function loadDashboardJornada() {
     }
 }
 
-async function loadDashboardTopLigas() {
+// Cargar selector de ligas para clasificación del dashboard
+async function loadDashboardClassificationLigaSelector() {
     if (!currentUser) return;
     
     const supabase = window.supabase || window.supabaseClient;
     if (!supabase) return;
 
     try {
-        // Obtener ligas del usuario
         const { data: userLigas, error } = await executeQueryWithTimeout(() =>
             supabase
                 .from('liga_members')
                 .select('liga_id, ligas(id, name)')
                 .eq('user_id', currentUser.id)
-        , 8000).catch(() => ({ data: [], error: null }));
+        , 8000);
 
-        if (!userLigas || userLigas.length === 0) {
+        if (error) throw error;
+
+        const select = document.getElementById('dashboard-classification-liga-select');
+        if (!select) return;
+
+        // Limpiar opciones
+        select.innerHTML = '<option value="">Selecciona una liga</option>';
+
+        if (userLigas && userLigas.length > 0) {
+            userLigas.forEach(item => {
+                if (item.ligas) {
+                    select.innerHTML += `<option value="${item.ligas.id}">${item.ligas.name}</option>`;
+                }
+            });
+
+            // Si solo hay una liga, seleccionarla automáticamente
+            if (userLigas.length === 1 && userLigas[0].ligas) {
+                select.value = userLigas[0].ligas.id;
+                loadDashboardClassification(userLigas[0].ligas.id);
+            }
+        } else {
+            select.innerHTML = '<option value="">No perteneces a ninguna liga</option>';
             const ligasEl = document.getElementById('dashboard-top-ligas');
             if (ligasEl) {
                 ligasEl.innerHTML = '<p class="no-data">No estás en ninguna liga</p>';
             }
+        }
+    } catch (error) {
+        console.error('Error cargando ligas para clasificación:', error);
+        const select = document.getElementById('dashboard-classification-liga-select');
+        if (select) {
+            select.innerHTML = '<option value="">Error al cargar ligas</option>';
+        }
+    }
+}
+
+async function loadDashboardTopLigas(ligaId = null) {
+    if (!currentUser) return;
+    
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase) return;
+
+    // Si no se proporciona ligaId, intentar obtenerlo del selector
+    if (!ligaId) {
+        const select = document.getElementById('dashboard-classification-liga-select');
+        ligaId = select ? parseInt(select.value) : null;
+    }
+
+    // Si no hay liga seleccionada, no cargar clasificación
+    if (!ligaId) {
+        const ligasEl = document.getElementById('dashboard-top-ligas');
+        if (ligasEl) {
+            ligasEl.innerHTML = '<p class="no-data">Selecciona una liga para ver la clasificación</p>';
+        }
+        return;
+    }
+
+    await loadDashboardClassification(ligaId);
+}
+
+// Función para cargar la clasificación de una liga en el dashboard
+async function loadDashboardClassification(ligaId) {
+    if (!currentUser) return;
+    
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase) return;
+
+    const container = document.getElementById('dashboard-top-ligas');
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
+
+    try {
+        // Obtener miembros de la liga con sus puntos totales
+        const membersResult = await executeQueryWithTimeout(() => 
+            supabase
+                .from('liga_members')
+                .select('user_id, users(id, name, total_points)')
+                .eq('liga_id', ligaId)
+        , 10000);
+        
+        const data = membersResult.data;
+        const error = membersResult.error;
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            container.innerHTML = '<p class="no-data">Esta liga no tiene miembros</p>';
             return;
         }
 
-        // Obtener posición y puntos en cada liga
-        const ligasData = await Promise.all(
-            userLigas.slice(0, 3).map(async (item) => {
-                if (!item.ligas) return null;
+        // Crear array de usuarios con sus puntos y ordenar por puntos (descendente)
+        const classification = (data || [])
+            .map(member => ({
+                userId: member.user_id,
+                name: member.users?.name || 'Usuario',
+                points: member.users?.total_points || 0
+            }))
+            .sort((a, b) => b.points - a.points);
 
-                const { data: members } = await executeQueryWithTimeout(() =>
-                    supabase
-                        .from('liga_members')
-                        .select('user_id, users(id, name, total_points)')
-                        .eq('liga_id', item.ligas.id)
-                , 5000).catch(() => ({ data: [] }));
-
-                const sortedMembers = (members || [])
-                    .map(m => ({ id: m.user_id, points: m.users?.total_points || 0 }))
-                    .sort((a, b) => b.points - a.points);
-
-                const userPosition = sortedMembers.findIndex(m => m.id === currentUser.id) + 1;
-                const userMember = sortedMembers.find(m => m.id === currentUser.id);
-                const userPoints = userMember?.points || 0;
-                const totalMembers = sortedMembers.length;
-
-                return {
-                    id: item.ligas.id,
-                    name: item.ligas.name,
-                    position: userPosition,
-                    points: userPoints,
-                    members: totalMembers
-                };
-            })
-        );
-
-        const validLigas = ligasData.filter(l => l !== null);
-
-        const ligasEl = document.getElementById('dashboard-top-ligas');
-        if (ligasEl) {
-            if (validLigas.length === 0) {
-                ligasEl.innerHTML = '<p class="no-data">No hay datos disponibles</p>';
-            } else {
-                ligasEl.innerHTML = validLigas.map(liga => `
-                    <div class="liga-item" onclick="goToClasificaciones('${liga.id}')">
-                        <div class="liga-item-header">
-                            <h4>${liga.name}</h4>
-                            <span class="liga-position-badge ${liga.position === 1 ? 'gold' : liga.position === 2 ? 'silver' : liga.position === 3 ? 'bronze' : ''}">
-                                #${liga.position}
-                            </span>
+        // Renderizar clasificación (solo mostrar top 10 para el dashboard)
+        const topClassification = classification.slice(0, 10);
+        
+        container.innerHTML = `
+            <div class="dashboard-classification-table">
+                ${topClassification.map((user, index) => {
+                    const position = index + 1;
+                    const isCurrentUser = user.userId === currentUser.id;
+                    return `
+                        <div class="classification-row ${isCurrentUser ? 'current-user' : ''}">
+                            <span class="position">${position}</span>
+                            <span class="user-name">${escapeHtml(user.name)}</span>
+                            <span class="points">${user.points} pts</span>
                         </div>
-                        <div class="liga-item-stats">
-                            <div class="liga-stat-small">
-                                <i class="fas fa-trophy"></i>
-                                <span>${liga.points} pts</span>
-                            </div>
-                            <div class="liga-stat-small">
-                                <i class="fas fa-users"></i>
-                                <span>${liga.members} miembros</span>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-            }
-        }
+                    `;
+                }).join('')}
+            </div>
+        `;
 
     } catch (error) {
-        console.error('Error cargando top ligas:', error);
+        console.error('Error cargando clasificación:', error);
+        container.innerHTML = '<p class="no-data">Error al cargar la clasificación</p>';
+    }
+}
+
+// Función para manejar cambio de liga en clasificación del dashboard
+function onDashboardClassificationLigaChange() {
+    const select = document.getElementById('dashboard-classification-liga-select');
+    if (select && select.value) {
+        loadDashboardClassification(parseInt(select.value));
+    } else {
+        loadDashboardTopLigas(null);
     }
 }
 
@@ -4971,6 +5033,7 @@ if (typeof window !== 'undefined') {
     window.resetAllUserPoints = resetAllUserPoints;
     window.deleteLiga = deleteLiga;
     window.onDashboardStatisticsLigaChange = onDashboardStatisticsLigaChange;
+    window.onDashboardClassificationLigaChange = onDashboardClassificationLigaChange;
 }
 
 // ========================================

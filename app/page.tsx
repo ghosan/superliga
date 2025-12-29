@@ -448,23 +448,30 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Columna 3: Ligas Rápidas */}
+              {/* Columna 3: Clasificación de Ligas */}
               <div className="dashboard-column">
                 <div className="dashboard-card">
                   <div className="dashboard-card-header">
-                    <h3><i className="fas fa-users"></i> Mis Ligas</h3>
+                    <h3><i className="fas fa-medal"></i> Clasificación</h3>
+                    <select id="dashboard-classification-liga-select" className="liga-selector-small" onChange={() => {
+                      if (typeof window !== 'undefined' && (window as any).onDashboardClassificationLigaChange) {
+                        (window as any).onDashboardClassificationLigaChange();
+                      }
+                    }}>
+                      <option value="">Cargando ligas...</option>
+                    </select>
                   </div>
                   <div className="dashboard-card-content">
-                    <div id="dashboard-top-ligas">
-                      {/* Top ligas se cargarán aquí */}
+                    <div id="dashboard-top-ligas" className="dashboard-classification-list">
+                      {/* Clasificación se cargará aquí */}
                     </div>
                     <a href="#" className="dashboard-link" onClick={(e) => {
                       e.preventDefault()
-                      if (typeof window !== 'undefined' && (window as any).goToLigas) {
-                        (window as any).goToLigas()
+                      if (typeof window !== 'undefined' && (window as any).goToClasificaciones) {
+                        (window as any).goToClasificaciones()
                       }
                     }}>
-                      Ver todas las ligas <i className="fas fa-arrow-right"></i>
+                      Ver clasificación completa <i className="fas fa-arrow-right"></i>
                     </a>
                   </div>
                 </div>
