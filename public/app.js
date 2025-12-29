@@ -5579,6 +5579,7 @@ if (typeof window !== 'undefined') {
     window.onDashboardClassificationLigaChange = onDashboardClassificationLigaChange;
     window.changeCompetition = changeCompetition;
     window.selectCompetition = selectCompetition;
+    window.updateNavCompetitionName = updateNavCompetitionName;
     window.loadCompetitionsList = loadCompetitionsList;
     window.showCreateCompetitionModal = showCreateCompetitionModal;
     window.createCompetitionFromForm = createCompetitionFromForm;
