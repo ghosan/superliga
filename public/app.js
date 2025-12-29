@@ -259,14 +259,18 @@ async function handleLogin(event) {
         }
 
         console.log('✅ Login exitoso, datos:', data);
+        
+        // Cerrar el modal de login
+        const loginModal = document.getElementById('login-modal');
+        if (loginModal) {
+            loginModal.classList.remove('active');
+            loginModal.style.display = 'none';
+        }
+        
         showNotification('¡Bienvenido de nuevo!', 'success');
         
         // El evento onAuthStateChange se encargará de redirigir al dashboard
-        // Pero cerramos los modales inmediatamente
-        closeModals();
-        
-        // Esperar un momento para que el evento de auth se dispare
-        // El dashboard se mostrará automáticamente a través de onAuthStateChange
+        // Ya no esperamos aquí, el listener se ejecutará automáticamente
     } catch (error) {
         console.error('❌ Error en login (catch):', error);
         showNotification('Error al iniciar sesión. Intenta de nuevo.', 'error');
@@ -730,13 +734,15 @@ function updateAdminVisibility() {
     const adminBtn = document.getElementById('admin-header-btn');
     
     if (!adminBtn) {
-        console.error('❌ No se encontró el elemento admin-header-btn');
-        // Intentar de nuevo después de un pequeño delay
+        console.warn('⚠️ No se encontró el elemento admin-header-btn, intentando más tarde...');
+        // Intentar de nuevo después de un pequeño delay (puede que el DOM aún no esté listo)
         setTimeout(() => {
             const retryBtn = document.getElementById('admin-header-btn');
             if (retryBtn) {
                 console.log('✅ Elemento encontrado en reintento');
                 updateAdminVisibility();
+            } else {
+                console.warn('⚠️ Elemento admin-header-btn no encontrado después del reintento');
             }
         }, 500);
         return;
@@ -744,14 +750,9 @@ function updateAdminVisibility() {
     
     if (isAdmin) {
         adminBtn.style.display = 'flex';
-        adminLink.style.visibility = 'visible';
-        adminLink.style.opacity = '1';
-        adminLink.classList.add('active');
-        console.log('✅ Panel Admin VISIBLE - estilos aplicados');
+        console.log('✅ Panel Admin VISIBLE');
     } else {
-        adminLink.style.display = 'none';
-        adminLink.style.visibility = 'hidden';
-        adminLink.classList.remove('active');
+        adminBtn.style.display = 'none';
         console.log('🔒 Panel Admin OCULTO (no es admin)');
     }
 }
