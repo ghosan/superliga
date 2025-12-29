@@ -471,15 +471,23 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Sección Inferior: Actividad Reciente */}
+            {/* Sección Inferior: Últimas Noticias */}
             <div className="dashboard-activity">
               <div className="dashboard-card">
                 <div className="dashboard-card-header">
-                  <h3><i className="fas fa-history"></i> Actividad Reciente</h3>
+                  <h3><i className="fas fa-newspaper"></i> Últimas Noticias</h3>
+                  <a href="#" className="view-all-link" data-page="noticias" onClick={(e) => {
+                    e.preventDefault();
+                    if (typeof window !== 'undefined' && (window as any).goToNoticias) {
+                      (window as any).goToNoticias();
+                    }
+                  }}>
+                    Ver todas
+                  </a>
                 </div>
                 <div className="dashboard-card-content">
                   <div id="dashboard-recent-activity">
-                    {/* Actividad reciente se cargará aquí */}
+                    {/* Últimas noticias se cargarán aquí */}
                   </div>
                 </div>
               </div>

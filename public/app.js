@@ -1222,49 +1222,51 @@ async function loadDashboardActivity() {
     if (!supabase) return;
 
     try {
-        // Obtener últimas predicciones
-        const { data: recentPredictions, error } = await executeQueryWithTimeout(() =>
+        // Intentar obtener últimas noticias desde la tabla 'noticias'
+        // Si la tabla no existe, manejar el error graciosamente
+        const { data: news, error } = await executeQueryWithTimeout(() =>
             supabase
-                .from('predictions')
-                .select('home_prediction, away_prediction, points, matches(home_team, away_team, jornada, match_date, home_score, away_score)')
-                .eq('user_id', currentUser.id)
+                .from('noticias')
+                .select('id, titulo, contenido, autor, created_at')
                 .order('created_at', { ascending: false })
                 .limit(5)
-        , 8000).catch(() => ({ data: [], error: null }));
+        , 8000).catch((err) => {
+            // Si la tabla no existe, retornar datos vacíos
+            if (err.code === '42P01' || err.message?.includes('does not exist')) {
+                return { data: [], error: null };
+            }
+            return { data: [], error: err };
+        });
 
         const activityEl = document.getElementById('dashboard-recent-activity');
         if (activityEl) {
-            if (!recentPredictions || recentPredictions.length === 0) {
-                activityEl.innerHTML = '<p class="no-data">Aún no has hecho pronósticos</p>';
+            // Si no hay noticias o hay error (tabla no existe), mostrar mensaje
+            if (!news || news.length === 0 || error) {
+                activityEl.innerHTML = '<p class="no-data">Aún no hay noticias disponibles</p>';
             } else {
-                activityEl.innerHTML = recentPredictions.map(pred => {
-                    const match = pred.matches;
-                    if (!match) return '';
-
-                    const hasResult = match.home_score !== null && match.away_score !== null;
-                    const date = new Date(match.match_date);
-                    const dateStr = date.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+                activityEl.innerHTML = news.map(item => {
+                    const date = new Date(item.created_at);
+                    const dateStr = date.toLocaleDateString('es-ES', { 
+                        day: '2-digit', 
+                        month: 'short', 
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    // Limitar el contenido a 150 caracteres
+                    const preview = item.contenido && item.contenido.length > 150 
+                        ? item.contenido.substring(0, 150) + '...' 
+                        : item.contenido || '';
 
                     return `
-                        <div class="activity-item ${hasResult ? 'has-result' : ''}">
-                            <div class="activity-match">
-                                <div class="activity-teams">
-                                    <span>${match.home_team}</span>
-                                    <span class="activity-score">${pred.home_prediction} - ${pred.away_prediction}</span>
-                                    <span>${match.away_team}</span>
-                                </div>
-                                <div class="activity-info">
-                                    <span class="activity-jornada">J${match.jornada}</span>
-                                    <span class="activity-date">${dateStr}</span>
-                                    ${hasResult ? 
-                                        `<span class="activity-result">
-                                            Resultado: ${match.home_score}-${match.away_score}
-                                            ${pred.points ? `<span class="activity-points">+${pred.points} pts</span>` : ''}
-                                        </span>` :
-                                        '<span class="activity-status">Pendiente</span>'
-                                    }
-                                </div>
+                        <div class="activity-item news-item">
+                            <div class="news-header">
+                                <h4 class="news-title">${item.titulo || 'Sin título'}</h4>
+                                <span class="news-date">${dateStr}</span>
                             </div>
+                            <p class="news-content">${preview}</p>
+                            ${item.autor ? `<span class="news-author">Por ${item.autor}</span>` : ''}
                         </div>
                     `;
                 }).join('');
@@ -1272,13 +1274,29 @@ async function loadDashboardActivity() {
         }
 
     } catch (error) {
-        console.error('Error cargando actividad:', error);
+        console.error('Error cargando noticias:', error);
+        const activityEl = document.getElementById('dashboard-recent-activity');
+        if (activityEl) {
+            activityEl.innerHTML = '<p class="no-data">Error al cargar noticias</p>';
+        }
     }
+}
+
+// Función auxiliar para escapar HTML (si no existe ya)
+function escapeHtml(text) {
+    if (typeof text !== 'string') return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // Funciones de navegación rápida
 function goToPronosticos() {
     document.querySelector('.nav-link[data-page="pronosticos"]')?.click();
+}
+
+function goToNoticias() {
+    document.querySelector('.nav-link[data-page="noticias"]')?.click();
 }
 
 function goToLigas() {
@@ -1307,6 +1325,7 @@ function goToClasificaciones(ligaId = null) {
 // Exponer funciones globalmente
 if (typeof window !== 'undefined') {
     window.goToPronosticos = goToPronosticos;
+    window.goToNoticias = goToNoticias;
     window.goToLigas = goToLigas;
     window.goToClasificaciones = goToClasificaciones;
 }

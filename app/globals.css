@@ -1296,6 +1296,53 @@ body {
     background: var(--slate-50);
 }
 
+/* Estilos para noticias */
+.activity-item.news-item {
+    padding: 12px 16px;
+    transition: var(--transition);
+    cursor: pointer;
+}
+
+.activity-item.news-item:hover {
+    background: var(--slate-50);
+}
+
+.news-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.news-title {
+    font-size: 0.938rem;
+    font-weight: 700;
+    color: var(--slate-900);
+    margin: 0;
+    flex: 1;
+    line-height: 1.4;
+}
+
+.news-date {
+    font-size: 0.75rem;
+    color: var(--slate-500);
+    white-space: nowrap;
+}
+
+.news-content {
+    font-size: 0.813rem;
+    color: var(--slate-700);
+    line-height: 1.5;
+    margin: 0 0 8px 0;
+}
+
+.news-author {
+    font-size: 0.75rem;
+    color: var(--slate-500);
+    font-style: italic;
+}
+
 .activity-match {
     display: flex;
     flex-direction: column;
