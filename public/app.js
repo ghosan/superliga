@@ -2225,9 +2225,10 @@ async function loadUserPredictions(ligaId = null) {
                     .eq('liga_id', ligaIdNum)
             , 8000);
         } catch (queryError) {
-            // Si el error es que la columna liga_id no existe, intentar sin filtrar
-            if (queryError.message && (queryError.message.includes('liga_id') || queryError.message.includes('column'))) {
-                console.warn('⚠️ Problema con columna liga_id, cargando todas las predicciones y filtrando en memoria');
+            // Si el error es que la columna liga_id no existe, intentar sin filtrar por liga_id
+            if (queryError.code === '42703' || (queryError.message && (queryError.message.includes('liga_id') || queryError.message.includes('column predictions.liga_id') || queryError.message.includes('does not exist')))) {
+                console.warn('⚠️ La columna liga_id no existe en la tabla predictions. Cargando predicciones sin filtrar por liga.');
+                // Intentar cargar sin filtrar por liga_id
                 result = await executeQueryWithTimeout(() => 
                     supabase
                         .from('predictions')
@@ -2235,7 +2236,7 @@ async function loadUserPredictions(ligaId = null) {
                         .eq('user_id', currentUser.id)
                 , 8000);
                 
-                // Filtrar en memoria si es necesario
+                // Filtrar en memoria si es necesario (aunque probablemente no haya liga_id)
                 if (result.data) {
                     result.data = result.data.filter(pred => {
                         // Si la predicción tiene liga_id, comparar; si no, incluir todas (compatibilidad)
@@ -3898,42 +3899,78 @@ function parseCSVLine(line) {
 }
 
 function parseSpanishDate(dateStr, timeStr) {
-    // Soporta formatos: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD
+    // Soporta formatos: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD, DD/MM (año actual)
     let day, month, year;
     
+    // Si no hay año, usar el año actual
+    const currentYear = new Date().getFullYear();
+    
     if (dateStr.includes('/')) {
-        const parts = dateStr.split('/');
-        if (parts[0].length === 4) {
-            // YYYY/MM/DD
-            [year, month, day] = parts;
+        const parts = dateStr.split('/').map(p => p.trim());
+        if (parts.length === 3) {
+            if (parts[0].length === 4) {
+                // YYYY/MM/DD
+                [year, month, day] = parts;
+            } else {
+                // DD/MM/YYYY
+                [day, month, year] = parts;
+            }
+        } else if (parts.length === 2) {
+            // DD/MM (sin año, usar año actual)
+            [day, month] = parts;
+            year = currentYear;
         } else {
-            // DD/MM/YYYY
-            [day, month, year] = parts;
+            return null;
         }
     } else if (dateStr.includes('-')) {
-        const parts = dateStr.split('-');
-        if (parts[0].length === 4) {
-            // YYYY-MM-DD
-            [year, month, day] = parts;
+        const parts = dateStr.split('-').map(p => p.trim());
+        if (parts.length === 3) {
+            if (parts[0].length === 4) {
+                // YYYY-MM-DD
+                [year, month, day] = parts;
+            } else {
+                // DD-MM-YYYY
+                [day, month, year] = parts;
+            }
+        } else if (parts.length === 2) {
+            // DD-MM (sin año, usar año actual)
+            [day, month] = parts;
+            year = currentYear;
         } else {
-            // DD-MM-YYYY
-            [day, month, year] = parts;
+            return null;
         }
     } else {
         return null;
     }
 
+    // Validar y convertir año
+    year = parseInt(year);
+    // Si el año tiene 2 dígitos, asumir 20XX (2020-2099)
+    if (year < 100) {
+        year = 2000 + year;
+    }
+    // Si el año es muy pequeño (menor a 2000), asumir que es 20XX
+    if (year < 2000) {
+        year = 2000 + (year % 100);
+    }
+
+    month = parseInt(month);
+    day = parseInt(day);
+
     // Parsear hora
-    const [hours, minutes] = timeStr.split(':').map(n => parseInt(n));
+    const timeParts = (timeStr || '00:00').split(':');
+    const hours = parseInt(timeParts[0]) || 0;
+    const minutes = parseInt(timeParts[1]) || 0;
     
-    // Crear fecha
-    const date = new Date(
-        parseInt(year),
-        parseInt(month) - 1,
-        parseInt(day),
-        hours || 0,
-        minutes || 0
-    );
+    // Crear fecha en zona horaria local (España)
+    // Usar UTC para evitar problemas de zona horaria
+    const date = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+
+    // Validar que la fecha es válida
+    if (isNaN(date.getTime())) {
+        console.error(`❌ Fecha inválida generada: ${year}-${month}-${day} ${hours}:${minutes}`);
+        return null;
+    }
 
     return date;
 }
