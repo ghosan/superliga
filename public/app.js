@@ -766,19 +766,28 @@ function showLandingPage() {
 }
 
 async function showDashboard() {
+    console.log('🔄 showDashboard() llamado');
     const landingPage = document.getElementById('landing-page');
     const dashboardPage = document.getElementById('dashboard-page');
     
     if (!landingPage || !dashboardPage) {
         console.error('❌ Elementos de página no encontrados');
+        console.error('Landing page existe:', !!landingPage);
+        console.error('Dashboard page existe:', !!dashboardPage);
         return;
     }
 
+    console.log('📄 Cambiando de landing page a dashboard...');
     landingPage.classList.remove('active');
+    landingPage.style.display = 'none';
     dashboardPage.classList.add('active');
+    dashboardPage.style.display = 'block';
+    
+    console.log('✅ Dashboard mostrado');
     
     try {
         // Cargar datos iniciales (esperar a que se completen)
+        console.log('📊 Cargando datos del dashboard...');
         await loadActiveJornada();
         
         // Cargar en paralelo las que no dependen entre sí
