@@ -1262,11 +1262,11 @@ async function loadDashboardActivity() {
                     return `
                         <div class="activity-item news-item">
                             <div class="news-header">
-                                <h4 class="news-title">${item.titulo || 'Sin título'}</h4>
+                                <h4 class="news-title">${escapeHtml(item.titulo || 'Sin título')}</h4>
                                 <span class="news-date">${dateStr}</span>
                             </div>
-                            <p class="news-content">${preview}</p>
-                            ${item.autor ? `<span class="news-author">Por ${item.autor}</span>` : ''}
+                            <p class="news-content">${escapeHtml(preview)}</p>
+                            ${item.autor ? `<span class="news-author">Por ${escapeHtml(item.autor)}</span>` : ''}
                         </div>
                     `;
                 }).join('');
