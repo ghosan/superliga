@@ -2585,20 +2585,24 @@ async function savePredictions() {
     const predictions = [];
 
     matchRows.forEach(row => {
-        const matchId = row.dataset.matchId;
+        // Normalizar matchId a número para consistencia
+        const matchId = parseInt(row.dataset.matchId);
         const homeSelect = document.getElementById(`home-${matchId}`);
         const awaySelect = document.getElementById(`away-${matchId}`);
 
-        console.log(`Partido ${matchId}:`, homeSelect?.value, '-', awaySelect?.value);
+        console.log(`💾 Partido ${matchId} (tipo: ${typeof matchId}):`, homeSelect?.value, '-', awaySelect?.value);
 
         if (homeSelect && awaySelect && homeSelect.value !== '' && awaySelect.value !== '') {
             predictions.push({
                 user_id: currentUser.id,
-                match_id: parseInt(matchId),
+                match_id: matchId, // Ya está normalizado
                 liga_id: ligaId,
                 home_prediction: parseInt(homeSelect.value),
                 away_prediction: parseInt(awaySelect.value)
             });
+            console.log(`  ✅ Añadido a lista: match_id=${matchId}, home=${homeSelect.value}, away=${awaySelect.value}`);
+        } else {
+            console.log(`  ⚠️ Partido ${matchId} omitido: selectores no disponibles o valores vacíos`);
         }
     });
 
