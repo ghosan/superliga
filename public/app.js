@@ -2375,6 +2375,9 @@ async function selectCompetition(competitionId, competitionName) {
         }
 
         showNotification(`Competición seleccionada: ${competitionName}`, 'success');
+        
+        // Actualizar nombre en el header
+        updateNavCompetitionName();
 
         // Recargar datos según la página actual (el dashboard ya está visible)
         const activePage = document.querySelector('.section.active')?.id;
