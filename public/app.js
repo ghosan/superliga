@@ -144,13 +144,29 @@ async function executeQueryWithTimeout(queryFn, timeoutMs = 10000) {
 // AUTENTICACIÓN
 // ========================================
 function showLoginModal() {
+    console.log('🔓 showLoginModal() llamado');
     closeModals();
-    document.getElementById('login-modal').classList.add('active');
+    const loginModal = document.getElementById('login-modal');
+    if (loginModal) {
+        loginModal.classList.add('active');
+        loginModal.style.display = 'flex';
+        console.log('✅ Modal de login mostrado');
+    } else {
+        console.error('❌ Modal de login no encontrado');
+    }
 }
 
 function showRegisterModal() {
+    console.log('📝 showRegisterModal() llamado');
     closeModals();
-    document.getElementById('register-modal').classList.add('active');
+    const registerModal = document.getElementById('register-modal');
+    if (registerModal) {
+        registerModal.classList.add('active');
+        registerModal.style.display = 'flex';
+        console.log('✅ Modal de registro mostrado');
+    } else {
+        console.error('❌ Modal de registro no encontrado');
+    }
 }
 
 function showForgotPasswordModal() {
