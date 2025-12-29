@@ -84,3 +84,4 @@ Verifica que estén configuradas en Vercel:
 - [ ] HTTPS forzado (Vercel lo hace automáticamente)
 
 
+

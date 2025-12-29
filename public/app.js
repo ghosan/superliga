@@ -2414,7 +2414,28 @@ async function loadCompetitionsForModal() {
         }
 
         // Renderizar tarjetas de competiciones
-        container.innerHTML = competitions.map(comp => {
+        let html = '';
+        
+        // Si el usuario es admin, añadir tarjeta de Panel de Administración al principio
+        if (isAdmin) {
+            html += `
+            <div class="competition-card-modal admin-panel-card" onclick="openAdminDashboardFromSelector()">
+                <div class="competition-card-icon" style="background: linear-gradient(135deg, var(--purple-500), var(--purple-600));">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div class="competition-card-content">
+                    <h3>Panel de Administración</h3>
+                    <p>Gestiona competiciones, partidos, usuarios y más</p>
+                </div>
+                <div class="competition-card-arrow">
+                    <i class="fas fa-chevron-right"></i>
+                </div>
+            </div>
+            `;
+        }
+        
+        // Añadir competiciones
+        html += competitions.map(comp => {
             const isSelected = comp.id === currentCompetitionId;
             return `
             <div class="competition-card-modal ${isSelected ? 'selected' : ''}" onclick="selectCompetition(${comp.id}, '${escapeHtml(comp.name)}')">
@@ -2431,6 +2452,8 @@ async function loadCompetitionsForModal() {
             </div>
         `;
         }).join('');
+        
+        container.innerHTML = html;
 
     } catch (error) {
         console.error('Error:', error);
@@ -6070,6 +6093,7 @@ if (typeof window !== 'undefined') {
     window.activateCompetition = activateCompetition;
     window.deleteCompetition = deleteCompetition;
     window.showAdminDashboard = showAdminDashboard;
+    window.openAdminDashboardFromSelector = openAdminDashboardFromSelector;
     window.closeAdminDashboard = closeAdminDashboard;
     window.openAdminTab = openAdminTab;
     window.closeAdminPanel = closeAdminPanel;
@@ -6087,6 +6111,21 @@ function showAdminDashboard() {
     
     modal.classList.add('active');
     modal.style.display = 'flex';
+}
+
+// Función para abrir el panel de administración desde el selector de competición
+function openAdminDashboardFromSelector() {
+    console.log('🔧 Abriendo panel de administración desde selector');
+    
+    // Cerrar el modal de selección de competición
+    const competitionModal = document.getElementById('competition-selector-modal');
+    if (competitionModal) {
+        competitionModal.classList.remove('active');
+        competitionModal.style.display = '';
+    }
+    
+    // Abrir el panel de administración
+    showAdminDashboard();
 }
 
 function closeAdminDashboard() {

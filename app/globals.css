@@ -627,6 +627,50 @@ body {
     transform: translateX(4px);
 }
 
+/* Tarjeta de Panel de Administración en el selector de competición */
+.competition-card-modal.admin-panel-card {
+    background: linear-gradient(135deg, var(--purple-900), var(--purple-800));
+    border: 2px solid var(--purple-500);
+    position: relative;
+    overflow: hidden;
+}
+
+.competition-card-modal.admin-panel-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
+    animation: pulse 3s ease-in-out infinite;
+}
+
+.competition-card-modal.admin-panel-card:hover {
+    background: linear-gradient(135deg, var(--purple-800), var(--purple-700));
+    border-color: var(--purple-400);
+    transform: translateX(4px) scale(1.02);
+    box-shadow: 0 8px 24px rgba(139, 92, 246, 0.3);
+}
+
+.competition-card-modal.admin-panel-card .competition-card-icon {
+    background: linear-gradient(135deg, var(--purple-500), var(--purple-600));
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+}
+
+.competition-card-modal.admin-panel-card .competition-card-content h3 {
+    color: var(--purple-100);
+    font-weight: 700;
+}
+
+.competition-card-modal.admin-panel-card .competition-card-content p {
+    color: var(--purple-300);
+}
+
+.competition-card-modal.admin-panel-card .competition-card-arrow {
+    color: var(--purple-400);
+}
+
 .competition-card-icon {
     width: 48px;
     height: 48px;

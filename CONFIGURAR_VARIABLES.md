@@ -43,3 +43,4 @@ Después del despliegue, en la consola del navegador deberías ver:
 Si ves `fromEnv: false`, significa que las variables no se están leyendo desde Vercel y se están usando los valores por defecto.
 
 
+
