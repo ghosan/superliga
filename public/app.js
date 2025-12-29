@@ -4421,13 +4421,39 @@ async function loadAdminPartidosCompetitionSelector() {
 
 // Cambio de competición en "Gestionar Partidos"
 async function onAdminPartidosCompetitionChange() {
-    const select = document.getElementById('admin-partidos-competition-select');
-    if (!select) return;
+    console.log('🔄 onAdminPartidosCompetitionChange() llamado');
+    
+    // Buscar el selector tanto en el modal como en la sección original
+    let select = document.getElementById('admin-partidos-competition-select');
+    if (!select) {
+        select = document.querySelector('#admin-panel-modal #admin-partidos-competition-select');
+    }
+    
+    if (!select) {
+        console.error('❌ Selector admin-partidos-competition-select no encontrado');
+        return;
+    }
 
     const competitionId = parseInt(select.value);
+    console.log('📋 Competición seleccionada:', competitionId);
+    
     if (!competitionId) {
-        document.getElementById('admin-jornada-select').innerHTML = '<option value="">Selecciona una competición primero</option>';
-        document.getElementById('admin-matches-list').innerHTML = '';
+        // Buscar elementos en el modal
+        let jornadaSelect = document.getElementById('admin-jornada-select');
+        if (!jornadaSelect) {
+            jornadaSelect = document.querySelector('#admin-panel-modal #admin-jornada-select');
+        }
+        if (jornadaSelect) {
+            jornadaSelect.innerHTML = '<option value="">Selecciona una competición primero</option>';
+        }
+        
+        let matchesList = document.getElementById('admin-matches-list');
+        if (!matchesList) {
+            matchesList = document.querySelector('#admin-panel-modal #admin-matches-list');
+        }
+        if (matchesList) {
+            matchesList.innerHTML = '';
+        }
         return;
     }
 
@@ -4436,11 +4462,14 @@ async function onAdminPartidosCompetitionChange() {
     currentCompetitionId = competitionId;
 
     try {
+        console.log('📊 Cargando jornadas y partidos para competición:', competitionId);
         await loadJornadasSelectors('admin');
         loadAdminMatches();
+        console.log('✅ Datos cargados correctamente');
     } catch (error) {
-        console.error('Error al cambiar competición:', error);
+        console.error('❌ Error al cambiar competición:', error);
         currentCompetitionId = previousCompetitionId;
+        showNotification('Error al cargar los datos de la competición', 'error');
     }
 }
 
@@ -5265,11 +5294,34 @@ function showImportPreview(matches, errors) {
 }
 
 async function loadAdminMatches() {
-    const jornadaSelect = document.getElementById('admin-jornada-select');
-    const compSelect = document.getElementById('admin-partidos-competition-select');
-    const container = document.getElementById('admin-matches-list');
+    console.log('📋 loadAdminMatches() llamado');
     
-    if (!container) return;
+    // Buscar elementos tanto en el modal como en la sección original
+    let jornadaSelect = document.getElementById('admin-jornada-select');
+    if (!jornadaSelect) {
+        jornadaSelect = document.querySelector('#admin-panel-modal #admin-jornada-select');
+    }
+    
+    let compSelect = document.getElementById('admin-partidos-competition-select');
+    if (!compSelect) {
+        compSelect = document.querySelector('#admin-panel-modal #admin-partidos-competition-select');
+    }
+    
+    let container = document.getElementById('admin-matches-list');
+    if (!container) {
+        container = document.querySelector('#admin-panel-modal #admin-matches-list');
+    }
+    
+    if (!container) {
+        console.error('❌ Contenedor admin-matches-list no encontrado');
+        return;
+    }
+    
+    console.log('✅ Elementos encontrados:', {
+        jornadaSelect: !!jornadaSelect,
+        compSelect: !!compSelect,
+        container: !!container
+    });
 
     const supabase = getSupabase();
     if (!supabase) {
