@@ -4495,6 +4495,7 @@ async function onAdminPartidosCompetitionChange() {
     console.log('📋 Competición seleccionada:', competitionId);
     
     if (!competitionId) {
+        console.warn('⚠️ No se seleccionó ninguna competición');
         // Buscar elementos en el modal
         let jornadaSelect = document.getElementById('admin-jornada-select');
         if (!jornadaSelect) {
@@ -4509,7 +4510,7 @@ async function onAdminPartidosCompetitionChange() {
             matchesList = document.querySelector('#admin-panel-modal #admin-matches-list');
         }
         if (matchesList) {
-            matchesList.innerHTML = '';
+            matchesList.innerHTML = '<p style="text-align: center; color: var(--slate-500);">Selecciona una competición primero</p>';
         }
         return;
     }
@@ -4520,13 +4521,20 @@ async function onAdminPartidosCompetitionChange() {
 
     try {
         console.log('📊 Cargando jornadas y partidos para competición:', competitionId);
+        
+        // Forzar actualización de jornadas primero
         await loadJornadasSelectors('admin');
+        
+        // Esperar un poco para que el selector se actualice
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Cargar partidos
         loadAdminMatches();
         console.log('✅ Datos cargados correctamente');
     } catch (error) {
         console.error('❌ Error al cambiar competición:', error);
         currentCompetitionId = previousCompetitionId;
-        showNotification('Error al cargar los datos de la competición', 'error');
+        showNotification('Error al cargar los datos de la competición: ' + (error.message || 'Error desconocido'), 'error');
     }
 }
 
