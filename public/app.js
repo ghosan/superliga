@@ -4372,8 +4372,20 @@ async function loadAdminData() {
 
 // Cargar selector de competición para "Gestionar Partidos"
 async function loadAdminPartidosCompetitionSelector() {
-    const select = document.getElementById('admin-partidos-competition-select');
-    if (!select) return;
+    console.log('🔄 loadAdminPartidosCompetitionSelector() llamado');
+    
+    // Buscar el selector tanto en el modal como en la sección original
+    let select = document.getElementById('admin-partidos-competition-select');
+    if (!select) {
+        select = document.querySelector('#admin-panel-modal #admin-partidos-competition-select');
+    }
+    
+    if (!select) {
+        console.warn('⚠️ Selector admin-partidos-competition-select no encontrado');
+        return;
+    }
+    
+    console.log('✅ Selector encontrado, cargando competiciones...');
 
     const supabase = getSupabase();
     if (!supabase) {
