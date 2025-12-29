@@ -684,6 +684,42 @@ body {
     z-index: 10001;
 }
 
+.nav-competition-current {
+    margin-right: 16px;
+}
+
+.competition-change-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--slate-700);
+    color: white;
+    border: 1px solid var(--slate-600);
+    border-radius: var(--rounded-lg);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.competition-change-btn:hover {
+    background: var(--slate-600);
+    border-color: var(--blue-500);
+    color: white;
+}
+
+.competition-change-btn i.fa-trophy {
+    color: var(--amber-400);
+}
+
+.competition-change-btn #nav-competition-name {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .nav-progress {
     background: var(--blue-600);
     color: white;

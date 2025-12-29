@@ -297,6 +297,17 @@ export default function Home() {
             <i className="fas fa-futbol"></i>
             <span>SuperLiga</span>
           </div>
+          <div className="nav-competition-current">
+            <button className="btn btn-small competition-change-btn" onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).changeCompetition) {
+                (window as any).changeCompetition()
+              }
+            }} title="Cambiar competición">
+              <i className="fas fa-trophy"></i>
+              <span id="nav-competition-name">La Liga</span>
+              <i className="fas fa-chevron-down" style={{fontSize: '10px', marginLeft: '6px'}}></i>
+            </button>
+          </div>
           <div className="nav-progress">
             <span id="progress-percentage">0%</span>
             <span className="progress-label">Pronósticos</span>

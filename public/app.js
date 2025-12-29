@@ -2214,6 +2214,9 @@ async function loadCompetitionData(competitionId) {
                 slug: 'la-liga'
             };
         }
+        
+        // Actualizar nombre de competición en el header
+        updateNavCompetitionName();
     } catch (error) {
         console.warn('⚠️ Error cargando datos de competición:', error);
         currentCompetition = {
@@ -2221,6 +2224,19 @@ async function loadCompetitionData(competitionId) {
             name: 'La Liga',
             slug: 'la-liga'
         };
+        updateNavCompetitionName();
+    }
+}
+
+/**
+ * Actualizar el nombre de la competición en el header
+ */
+function updateNavCompetitionName() {
+    const navCompetitionEl = document.getElementById('nav-competition-name');
+    if (navCompetitionEl && currentCompetition) {
+        navCompetitionEl.textContent = currentCompetition.name;
+    } else if (navCompetitionEl) {
+        navCompetitionEl.textContent = 'Seleccionar';
     }
 }
 
@@ -5268,13 +5284,16 @@ async function loadProfileData() {
         
         document.getElementById('profile-ligas').textContent = ligas?.length || 0;
 
-        // Actualizar información de competición
+        // Actualizar información de competición en el perfil
         const competitionNameEl = document.getElementById('profile-competition-name');
         if (competitionNameEl && currentCompetition) {
             competitionNameEl.textContent = currentCompetition.name;
         } else if (competitionNameEl) {
             competitionNameEl.textContent = 'No seleccionada';
         }
+        
+        // Actualizar también en el header
+        updateNavCompetitionName();
 
     } catch (error) {
         console.error('Error cargando perfil:', error);
