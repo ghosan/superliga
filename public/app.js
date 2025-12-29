@@ -3672,11 +3672,13 @@ async function importFromExcel() {
                 const { data, error } = await supabase
                     .from('matches')
                     .insert(batch)
-                    .select();
+                    .select('*');
 
                 console.log(`📦 Respuesta del lote ${Math.floor(i/BATCH_SIZE) + 1}:`, { 
-                    data: data?.length || 0,
+                    dataLength: data?.length || 0,
                     error: error ? error.message : null,
+                    errorCode: error?.code || null,
+                    errorDetails: error?.details || null,
                     hasData: !!data,
                     hasError: !!error
                 });
@@ -3684,18 +3686,51 @@ async function importFromExcel() {
                 if (error) {
                     console.error(`❌ Error en lote ${Math.floor(i/BATCH_SIZE) + 1}:`, error);
                     console.error('❌ Detalles del error:', JSON.stringify(error, null, 2));
+                    console.error('❌ Código de error:', error.code);
+                    console.error('❌ Mensaje:', error.message);
+                    console.error('❌ Detalles:', error.details);
+                    console.error('❌ Hint:', error.hint);
+                    
+                    // Si es un error de permisos RLS, dar un mensaje más claro
+                    if (error.code === '42501' || error.message?.includes('permission') || error.message?.includes('policy')) {
+                        throw new Error('Error de permisos: Verifica que las políticas RLS en Supabase permitan insertar partidos para administradores.');
+                    }
+                    
                     failedCount += batch.length;
                     throw error;
                 }
 
+                // Verificar si se insertaron los datos correctamente
+                // A veces Supabase no devuelve data pero sí inserta (dependiendo de RLS)
+                // Intentar verificar consultando los partidos insertados
                 if (!data || data.length === 0) {
-                    console.error(`❌ No se devolvieron datos del lote ${Math.floor(i/BATCH_SIZE) + 1}`);
-                    failedCount += batch.length;
-                    throw new Error(`No se insertaron partidos del lote ${Math.floor(i/BATCH_SIZE) + 1}`);
+                    console.warn(`⚠️ No se devolvieron datos del lote ${Math.floor(i/BATCH_SIZE) + 1}, verificando inserción...`);
+                    
+                    // Esperar un poco y verificar si se insertaron
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    // Intentar contar los partidos insertados verificando por fecha y equipos
+                    const firstMatch = batch[0];
+                    const { count } = await supabase
+                        .from('matches')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('home_team', firstMatch.home_team)
+                        .eq('away_team', firstMatch.away_team)
+                        .eq('jornada', firstMatch.jornada);
+                    
+                    if (count && count > 0) {
+                        // Los partidos se insertaron aunque no se devolvieron datos (problema de RLS en select)
+                        console.log(`✅ Lote ${Math.floor(i/BATCH_SIZE) + 1} insertado (verificado por consulta): ${batch.length} partidos`);
+                        insertedCount += batch.length;
+                    } else {
+                        console.error(`❌ No se pudo verificar la inserción del lote ${Math.floor(i/BATCH_SIZE) + 1}`);
+                        failedCount += batch.length;
+                        // No lanzar error, continuar con el siguiente lote
+                    }
+                } else {
+                    insertedCount += data.length;
+                    console.log(`✅ Lote ${Math.floor(i/BATCH_SIZE) + 1} insertado: ${data.length} partidos`);
                 }
-
-                insertedCount += data.length;
-                console.log(`✅ Lote ${Math.floor(i/BATCH_SIZE) + 1} insertado: ${data.length} partidos`);
                 
                 // Pequeño delay entre lotes
                 if (i + BATCH_SIZE < matchesToInsert.length) {
@@ -3703,8 +3738,10 @@ async function importFromExcel() {
                 }
             } catch (batchError) {
                 console.error(`❌ Error en lote ${Math.floor(i/BATCH_SIZE) + 1}:`, batchError);
+                console.error('❌ Tipo de error:', typeof batchError);
+                console.error('❌ Stack:', batchError.stack);
                 failedCount += batch.length;
-                // Continuar con el siguiente lote
+                // Continuar con el siguiente lote en lugar de fallar todo
             }
         }
 
