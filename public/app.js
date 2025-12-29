@@ -184,6 +184,7 @@ function closeModals() {
         // NO cerrar el modal de selección de competición (debe permanecer hasta que el usuario seleccione)
         if (modal.id !== 'competition-selector-modal') {
             modal.classList.remove('active');
+            modal.style.display = 'none';
         }
     });
 }
