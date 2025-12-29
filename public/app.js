@@ -2227,17 +2227,29 @@ async function loadCompetitionData(competitionId) {
  * Mostrar modal de selección de competición
  */
 async function showCompetitionSelectorModal() {
+    console.log('🔍 Intentando mostrar modal de selección de competición');
     const modal = document.getElementById('competition-selector-modal');
     if (!modal) {
-        console.error('❌ Modal de selección de competición no encontrado');
+        console.error('❌ Modal de selección de competición no encontrado en el DOM');
         return;
     }
 
+    console.log('✅ Modal encontrado, cargando competiciones...');
     // Cargar competiciones en el modal
     await loadCompetitionsForModal();
 
     // Mostrar modal (no se puede cerrar hasta seleccionar una competición)
     modal.classList.add('active');
+    console.log('✅ Modal marcado como activo, clases:', modal.className);
+    
+    // Verificar que se haya añadido la clase
+    setTimeout(() => {
+        if (!modal.classList.contains('active')) {
+            console.error('❌ La clase active no se añadió al modal');
+        } else {
+            console.log('✅ Modal activo correctamente');
+        }
+    }, 100);
 }
 
 /**

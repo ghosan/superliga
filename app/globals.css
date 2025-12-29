@@ -675,10 +675,13 @@ body {
 
 #competition-selector-modal.modal.active {
     pointer-events: auto;
+    display: flex !important;
+    z-index: 10000;
 }
 
 #competition-selector-modal .modal-content {
     max-width: 500px;
+    z-index: 10001;
 }
 
 .nav-progress {
