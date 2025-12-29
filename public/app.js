@@ -2041,6 +2041,8 @@ async function loadMatches() {
         try {
             await loadUserPredictions(ligaId);
             console.log('✅ Predicciones cargadas antes de renderizar:', Object.keys(userPredictions).length);
+            console.log('📋 IDs de partidos con predicciones:', Object.keys(userPredictions).join(', '));
+            console.log('📋 IDs de partidos a renderizar:', matches.map(m => parseInt(m.id)).join(', '));
         } catch (predError) {
             console.warn('⚠️ Error cargando predicciones, continuando sin ellas:', predError);
             userPredictions = {}; // Asegurar que esté inicializado
@@ -2263,19 +2265,24 @@ async function loadUserPredictions(ligaId = null) {
         userPredictions = {};
         if (data && data.length > 0) {
             data.forEach(pred => {
+                // Normalizar match_id a número para asegurar consistencia
+                const matchId = parseInt(pred.match_id);
+                
                 // Asegurar que los valores de predicción sean números
-                userPredictions[pred.match_id] = {
+                userPredictions[matchId] = {
                     ...pred,
+                    match_id: matchId, // Normalizar también en el objeto
                     home_prediction: pred.home_prediction !== null && pred.home_prediction !== undefined ? parseInt(pred.home_prediction) : null,
                     away_prediction: pred.away_prediction !== null && pred.away_prediction !== undefined ? parseInt(pred.away_prediction) : null
                 };
-                console.log(`  Partido ${pred.match_id}: ${userPredictions[pred.match_id].home_prediction} - ${userPredictions[pred.match_id].away_prediction} (liga: ${pred.liga_id || 'N/A'})`);
+                console.log(`  ✅ Cargada predicción para partido ${matchId} (tipo: ${typeof matchId}): ${userPredictions[matchId].home_prediction} - ${userPredictions[matchId].away_prediction} (liga: ${pred.liga_id || 'N/A'})`);
             });
         } else {
             console.log('  (Sin predicciones guardadas para esta liga)');
         }
         
         console.log('✅ Total predicciones cargadas:', Object.keys(userPredictions).length);
+        console.log('📋 IDs de partidos con predicciones:', Object.keys(userPredictions).join(', '));
     } catch (error) {
         console.error('❌ Error cargando predicciones:', error);
         userPredictions = {};
@@ -2283,7 +2290,16 @@ async function loadUserPredictions(ligaId = null) {
 }
 
 function createMatchCard(match) {
-    const prediction = userPredictions[match.id] || {};
+    // Normalizar match.id a número para asegurar consistencia con userPredictions
+    const matchId = parseInt(match.id);
+    const prediction = userPredictions[matchId] || {};
+    
+    // Debug: Verificar si hay predicción para este partido
+    if (Object.keys(prediction).length > 0) {
+        console.log(`🎯 Partido ${matchId} tiene predicción cargada: ${prediction.home_prediction} - ${prediction.away_prediction}`);
+    } else {
+        console.log(`⚠️ Partido ${matchId} NO tiene predicción en userPredictions. Claves disponibles:`, Object.keys(userPredictions).join(', '));
+    }
     
     // Asegurar que la fecha se parsea correctamente
     let matchDate;
@@ -2425,24 +2441,24 @@ function createMatchCard(match) {
     };
 
     return `
-        <div class="match-row ${isLocked ? 'locked' : ''} ${isFinished ? 'finished' : ''}" data-match-id="${match.id}" ${match.fixture_id || match.api_football_id ? `data-fixture-id="${match.fixture_id || match.api_football_id}"` : ''}>
+        <div class="match-row ${isLocked ? 'locked' : ''} ${isFinished ? 'finished' : ''}" data-match-id="${matchId}" ${match.fixture_id || match.api_football_id ? `data-fixture-id="${match.fixture_id || match.api_football_id}"` : ''}>
             <span class="col-jornada">${match.jornada}</span>
             <span class="col-fecha">${formatDate(matchDate)}</span>
             <span class="col-hora">${formatTime(matchDate)}</span>
             <span class="col-local">${match.home_team}</span>
             <span class="col-goles">
                 <select class="goal-select ${prediction.home_prediction !== undefined && prediction.home_prediction !== null ? 'has-value' : ''}" 
-                        id="home-${match.id}" 
+                        id="home-${matchId}" 
                         ${isLocked ? 'disabled title="Este partido ya ha comenzado. No se pueden modificar los pronósticos."' : 'title="Selecciona goles del equipo local"'} 
-                        onchange="markPredictionChanged(${match.id})">
+                        onchange="markPredictionChanged(${matchId})">
                     ${generateScoreOptions(prediction.home_prediction)}
                 </select>
             </span>
             <span class="col-goles">
                 <select class="goal-select ${prediction.away_prediction !== undefined && prediction.away_prediction !== null ? 'has-value' : ''}" 
-                        id="away-${match.id}" 
+                        id="away-${matchId}" 
                         ${isLocked ? 'disabled title="Este partido ya ha comenzado. No se pueden modificar los pronósticos."' : 'title="Selecciona goles del equipo visitante"'} 
-                        onchange="markPredictionChanged(${match.id})">
+                        onchange="markPredictionChanged(${matchId})">
                     ${generateScoreOptions(prediction.away_prediction)}
                 </select>
             </span>
