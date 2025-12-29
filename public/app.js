@@ -4373,8 +4373,16 @@ async function onAdminPartidosCompetitionChange() {
 
 // Cargar selector de competición para "Introducir Resultados"
 async function loadAdminResultadosCompetitionSelector() {
-    const select = document.getElementById('admin-resultados-competition-select');
-    if (!select) return;
+    // Buscar el selector tanto en el modal como en la sección original
+    let select = document.getElementById('admin-resultados-competition-select');
+    if (!select) {
+        // Intentar buscar en el modal
+        select = document.querySelector('#admin-panel-modal #admin-resultados-competition-select');
+    }
+    if (!select) {
+        console.warn('⚠️ Selector admin-resultados-competition-select no encontrado');
+        return;
+    }
 
     const supabase = getSupabase();
     if (!supabase) {
@@ -5495,8 +5503,15 @@ async function recalculateAllUserPoints() {
 }
 
 async function loadUsersList() {
-    const container = document.getElementById('users-list');
-    if (!container) return;
+    // Buscar el contenedor tanto en el modal como en la sección original
+    let container = document.getElementById('users-list');
+    if (!container) {
+        container = document.querySelector('#admin-panel-modal #users-list');
+    }
+    if (!container) {
+        console.warn('⚠️ Contenedor users-list no encontrado');
+        return;
+    }
 
     const supabase = getSupabase();
     if (!supabase) {
@@ -6083,31 +6098,59 @@ function closeAdminDashboard() {
 }
 
 function openAdminTab(tabName) {
+    console.log('🔧 openAdminTab llamado con:', tabName);
+    
     // Cerrar el dashboard principal
     closeAdminDashboard();
     
     // Abrir el panel detallado
     const panelModal = document.getElementById('admin-panel-modal');
-    if (!panelModal) return;
+    if (!panelModal) {
+        console.error('❌ No se encontró admin-panel-modal');
+        return;
+    }
     
     // Obtener el contenedor donde están las pestañas originales
     const adminSection = document.getElementById('admin-section');
     const panelContainer = document.getElementById('admin-panel-tabs-container');
     
-    if (adminSection && panelContainer) {
-        // Limpiar el contenedor
-        panelContainer.innerHTML = '';
-        
-        // Copiar todas las pestañas de admin-section
-        const tabs = adminSection.querySelectorAll('[id$="-admin-tab"]');
-        tabs.forEach(tab => {
-            const clonedTab = tab.cloneNode(true);
-            // Mantener los IDs originales para que los selectores funcionen
-            clonedTab.classList.add('admin-tab-panel');
-            clonedTab.style.display = 'none';
-            panelContainer.appendChild(clonedTab);
-        });
+    if (!adminSection) {
+        console.error('❌ No se encontró admin-section');
+        return;
     }
+    
+    if (!panelContainer) {
+        console.error('❌ No se encontró admin-panel-tabs-container');
+        return;
+    }
+    
+    console.log('📋 Copiando contenido de admin-section...');
+    
+    // Limpiar el contenedor
+    panelContainer.innerHTML = '';
+    
+    // Copiar todas las pestañas de admin-section
+    const tabs = adminSection.querySelectorAll('[id$="-admin-tab"]');
+    console.log('📑 Pestañas encontradas:', tabs.length);
+    
+    if (tabs.length === 0) {
+        console.error('❌ No se encontraron pestañas en admin-section');
+        panelContainer.innerHTML = '<p style="padding: 20px; color: var(--red-500);">Error: No se encontró el contenido de administración.</p>';
+        panelModal.classList.add('active');
+        panelModal.style.display = 'flex';
+        return;
+    }
+    
+    tabs.forEach(tab => {
+        const clonedTab = tab.cloneNode(true);
+        // Cambiar el ID para evitar duplicados, pero mantener una referencia
+        const originalId = clonedTab.id;
+        clonedTab.id = 'modal-' + originalId;
+        clonedTab.classList.add('admin-tab-panel');
+        clonedTab.style.display = 'none';
+        panelContainer.appendChild(clonedTab);
+        console.log('✅ Pestaña copiada:', originalId);
+    });
     
     // Ocultar todas las pestañas primero
     const allTabs = panelContainer.querySelectorAll('.admin-tab-panel');
@@ -6115,10 +6158,13 @@ function openAdminTab(tabName) {
         tab.style.display = 'none';
     });
     
-    // Mostrar la pestaña seleccionada (usando el ID original)
-    const tabPanel = document.getElementById(tabName + '-admin-tab');
+    // Mostrar la pestaña seleccionada (usando el nuevo ID)
+    const tabPanel = document.getElementById('modal-' + tabName + '-admin-tab');
     if (tabPanel) {
         tabPanel.style.display = 'block';
+        console.log('✅ Pestaña mostrada:', tabName);
+    } else {
+        console.error('❌ No se encontró la pestaña:', 'modal-' + tabName + '-admin-tab');
     }
     
     // Actualizar el título
@@ -6148,8 +6194,19 @@ function openAdminTab(tabName) {
     panelModal.style.display = 'flex';
     
     // Cargar los datos según la pestaña
+    // Usar un timeout más largo para asegurar que el DOM esté listo
     setTimeout(() => {
+        console.log('📊 Cargando datos para la pestaña:', tabName);
+        
+        // Actualizar los selectores para que busquen en el modal
         if (tabName === 'partidos') {
+            // Buscar el selector en el modal
+            const selector = document.querySelector('#admin-panel-modal #admin-partidos-competition-select');
+            if (selector) {
+                console.log('✅ Selector encontrado en modal');
+            } else {
+                console.warn('⚠️ Selector no encontrado en modal, buscando en admin-section');
+            }
             loadAdminPartidosCompetitionSelector();
         } else if (tabName === 'resultados') {
             loadAdminResultadosCompetitionSelector();
@@ -6165,7 +6222,7 @@ function openAdminTab(tabName) {
         
         // Cargar datos generales
         loadAdminData();
-    }, 100);
+    }, 200);
 }
 
 function closeAdminPanel() {
@@ -6191,8 +6248,15 @@ function closeAllModals() {
  * Cargar lista de competiciones en el panel admin
  */
 async function loadCompetitionsList() {
-    const container = document.getElementById('competitions-list');
-    if (!container) return;
+    // Buscar el contenedor tanto en el modal como en la sección original
+    let container = document.getElementById('competitions-list');
+    if (!container) {
+        container = document.querySelector('#admin-panel-modal #competitions-list');
+    }
+    if (!container) {
+        console.warn('⚠️ Contenedor competitions-list no encontrado');
+        return;
+    }
 
     const supabase = getSupabase();
     if (!supabase) {
