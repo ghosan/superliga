@@ -2316,6 +2316,27 @@ function createMatchCard(match) {
             // Si no se puede parsear, asumir que es futuro para no bloquearlo incorrectamente
             matchDate = new Date(Date.now() + (24 * 60 * 60 * 1000)); // Mañana como fallback
         }
+        
+        // Corregir fechas obviamente incorrectas (años < 2020)
+        // Si el año es menor a 2020, probablemente es un error de parsing (1925 en lugar de 2025)
+        const year = matchDate.getFullYear();
+        if (year < 2020) {
+            console.warn(`⚠️ Fecha con año incorrecto detectada (${year}) para partido ${match.id}. Corrigiendo a 2025...`);
+            // Extraer día, mes, hora y minutos, y crear nueva fecha con año 2025
+            const month = matchDate.getMonth();
+            const day = matchDate.getDate();
+            const hours = matchDate.getHours();
+            const minutes = matchDate.getMinutes();
+            
+            // Crear nueva fecha con año 2025
+            matchDate = new Date(2025, month, day, hours, minutes, 0);
+            
+            // Si aún es inválida, intentar con año actual
+            if (isNaN(matchDate.getTime())) {
+                const currentYear = new Date().getFullYear();
+                matchDate = new Date(currentYear, month, day, hours, minutes, 0);
+            }
+        }
     } catch (e) {
         console.error(`❌ Error parseando fecha del partido ${match.id}:`, e);
         // Si hay error, asumir que es futuro para no bloquearlo incorrectamente
