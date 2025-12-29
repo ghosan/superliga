@@ -600,6 +600,41 @@ body {
     color: var(--blue-400);
 }
 
+.nav-competition-selector {
+    margin-right: 16px;
+}
+
+.competition-select {
+    padding: 6px 12px;
+    border: 1px solid var(--slate-600);
+    border-radius: var(--rounded-lg);
+    font-size: 13px;
+    font-weight: 600;
+    color: white;
+    background: var(--slate-700);
+    cursor: pointer;
+    transition: var(--transition);
+    min-width: 140px;
+}
+
+.competition-select:hover {
+    background: var(--slate-600);
+    border-color: var(--slate-500);
+}
+
+.competition-select:focus {
+    outline: none;
+    border-color: var(--blue-500);
+    background: var(--slate-600);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.competition-select option {
+    background: var(--slate-800);
+    color: white;
+    padding: 8px;
+}
+
 .nav-progress {
     background: var(--blue-600);
     color: white;

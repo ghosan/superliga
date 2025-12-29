@@ -297,6 +297,15 @@ export default function Home() {
             <i className="fas fa-futbol"></i>
             <span>SuperLiga</span>
           </div>
+          <div className="nav-competition-selector">
+            <select id="competition-selector" className="competition-select" onChange={() => {
+              if (typeof window !== 'undefined' && (window as any).onCompetitionChange) {
+                (window as any).onCompetitionChange();
+              }
+            }}>
+              <option value="">Cargando competiciones...</option>
+            </select>
+          </div>
           <div className="nav-progress">
             <span id="progress-percentage">0%</span>
             <span className="progress-label">Pronósticos</span>

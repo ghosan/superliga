@@ -9,6 +9,8 @@ let currentJornada = 1;
 let userPredictions = {};
 let activeJornada = 1;
 let selectedPronosticosLiga = null; // Liga seleccionada para hacer pronósticos
+let currentCompetitionId = 1; // ID de la competición activa (por defecto La Liga)
+let currentCompetition = null; // Objeto con datos de la competición activa
 
 // ========================================
 // INICIALIZACIÓN
@@ -59,6 +61,9 @@ async function initializeApp() {
         }
     });
 
+    // Cargar competición activa primero (antes de cargar datos)
+    await loadActiveCompetition();
+    
     // Configurar navegación
     setupNavigation();
     
@@ -67,7 +72,7 @@ async function initializeApp() {
     // Configurar tabs de admin
     setupAdminTabs();
     
-    // Cargar equipos en selectores
+    // Cargar equipos en selectores (después de cargar competición)
     loadTeamsInSelectors();
     
     // Cargar jornadas en selectores admin
@@ -2067,6 +2072,210 @@ function changeJornada(delta) {
         currentJornada = newJornada;
         updateJornadaDisplay();
         loadMatches();
+    }
+}
+
+// ========================================
+// GESTIÓN DE COMPETICIONES
+// ========================================
+/**
+ * Cargar competición activa desde config o localStorage
+ */
+async function loadActiveCompetition() {
+    const supabase = getSupabase();
+    if (!supabase) {
+        // Si no hay Supabase, usar valor por defecto del localStorage
+        const saved = localStorage.getItem('active_competition_id');
+        currentCompetitionId = saved ? parseInt(saved) : 1;
+        await loadCompetitionSelector();
+        return;
+    }
+
+    try {
+        // Intentar cargar desde config (preferido)
+        const { data, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('config')
+                .select('value')
+                .eq('key', 'active_competition_id')
+                .single()
+        , 5000).catch(() => ({ data: null, error: null }));
+
+        if (data && data.value) {
+            currentCompetitionId = parseInt(data.value) || 1;
+        } else {
+            // Intentar desde localStorage
+            const saved = localStorage.getItem('active_competition_id');
+            currentCompetitionId = saved ? parseInt(saved) : 1;
+            // Guardar en config para futuras veces
+            await saveActiveCompetitionToConfig(currentCompetitionId);
+        }
+
+        // Cargar datos de la competición
+        await loadCompetitionData(currentCompetitionId);
+        
+        // Cargar selector
+        await loadCompetitionSelector();
+        
+    } catch (error) {
+        console.warn('⚠️ Error cargando competición activa, usando valor por defecto:', error);
+        currentCompetitionId = 1;
+        await loadCompetitionSelector();
+    }
+}
+
+/**
+ * Cargar datos de la competición activa
+ */
+async function loadCompetitionData(competitionId) {
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    try {
+        const { data, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('competitions')
+                .select('*')
+                .eq('id', competitionId)
+                .single()
+        , 5000).catch(() => ({ data: null, error: null }));
+
+        if (data && !error) {
+            currentCompetition = data;
+        } else {
+            // Si no existe, usar valores por defecto
+            currentCompetition = {
+                id: competitionId,
+                name: 'La Liga',
+                slug: 'la-liga'
+            };
+        }
+    } catch (error) {
+        console.warn('⚠️ Error cargando datos de competición:', error);
+        currentCompetition = {
+            id: competitionId,
+            name: 'La Liga',
+            slug: 'la-liga'
+        };
+    }
+}
+
+/**
+ * Cargar selector de competiciones en el header
+ */
+async function loadCompetitionSelector() {
+    const selector = document.getElementById('competition-selector');
+    if (!selector) return;
+
+    selector.innerHTML = '<option value="">Cargando competiciones...</option>';
+
+    const supabase = getSupabase();
+    if (!supabase) {
+        selector.innerHTML = '<option value="1">La Liga</option>';
+        selector.value = '1';
+        return;
+    }
+
+    try {
+        // Intentar cargar competiciones desde la base de datos
+        const { data: competitions, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('competitions')
+                .select('id, name, is_active')
+                .eq('is_active', true)
+                .order('id', { ascending: true })
+        , 5000).catch(() => ({ data: null, error: null }));
+
+        if (competitions && competitions.length > 0) {
+            selector.innerHTML = competitions.map(comp => 
+                `<option value="${comp.id}">${escapeHtml(comp.name)}</option>`
+            ).join('');
+            
+            // Seleccionar la competición activa
+            selector.value = currentCompetitionId.toString();
+        } else {
+            // Si no hay competiciones, mostrar solo La Liga (por defecto)
+            selector.innerHTML = '<option value="1">La Liga</option>';
+            selector.value = '1';
+        }
+    } catch (error) {
+        console.warn('⚠️ Error cargando competiciones, usando valor por defecto:', error);
+        selector.innerHTML = '<option value="1">La Liga</option>';
+        selector.value = '1';
+    }
+}
+
+/**
+ * Guardar competición activa en config y localStorage
+ */
+async function saveActiveCompetitionToConfig(competitionId) {
+    // Guardar en localStorage inmediatamente
+    localStorage.setItem('active_competition_id', competitionId.toString());
+
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    try {
+        // Guardar en config (solo si es admin)
+        if (isAdmin) {
+            await executeQueryWithTimeout(() =>
+                supabase
+                    .from('config')
+                    .upsert({ 
+                        key: 'active_competition_id', 
+                        value: competitionId.toString() 
+                    }, {
+                        onConflict: 'key'
+                    })
+            , 3000).catch(err => {
+                console.warn('⚠️ No se pudo guardar competición activa en config:', err);
+            });
+        }
+    } catch (error) {
+        console.warn('⚠️ Error guardando competición activa:', error);
+    }
+}
+
+/**
+ * Manejar cambio de competición
+ */
+async function onCompetitionChange() {
+    const selector = document.getElementById('competition-selector');
+    if (!selector || !selector.value) return;
+
+    const newCompetitionId = parseInt(selector.value);
+    
+    if (newCompetitionId === currentCompetitionId) {
+        return; // No hacer nada si es la misma
+    }
+
+    // Guardar nueva competición activa
+    currentCompetitionId = newCompetitionId;
+    await saveActiveCompetitionToConfig(newCompetitionId);
+    await loadCompetitionData(newCompetitionId);
+
+    // Recargar todos los datos con la nueva competición
+    showNotification(`Competición cambiada a: ${currentCompetition?.name || 'La Liga'}`, 'success');
+    
+    // Recargar datos según la página actual
+    const activePage = document.querySelector('.section.active')?.id;
+    
+    if (activePage === 'dashboard-section') {
+        if (typeof loadDashboard === 'function') {
+            loadDashboard();
+        }
+    } else if (activePage === 'pronosticos-section') {
+        if (typeof loadPronosticosLigaSelector === 'function') {
+            loadPronosticosLigaSelector();
+        }
+    } else if (activePage === 'clasificaciones-section') {
+        if (typeof loadLigasForSelect === 'function') {
+            loadLigasForSelect();
+        }
+    } else if (activePage === 'admin-section') {
+        if (typeof loadAdminData === 'function') {
+            loadAdminData();
+        }
     }
 }
 
@@ -5089,6 +5298,7 @@ if (typeof window !== 'undefined') {
     window.deleteLiga = deleteLiga;
     window.onDashboardStatisticsLigaChange = onDashboardStatisticsLigaChange;
     window.onDashboardClassificationLigaChange = onDashboardClassificationLigaChange;
+    window.onCompetitionChange = onCompetitionChange;
 }
 
 // ========================================
