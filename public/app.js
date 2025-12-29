@@ -228,7 +228,17 @@ async function handleLogin(event) {
         console.warn('Formato de email puede ser inválido:', email);
     }
 
+    // Obtener referencia a Supabase
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.auth) {
+        console.error('❌ Supabase no está disponible');
+        showNotification('Error: No se pudo conectar con el servidor. Por favor, recarga la página.', 'error');
+        return;
+    }
+
     try {
+        console.log('🔐 Intentando iniciar sesión con email:', email);
+        
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password
@@ -236,7 +246,7 @@ async function handleLogin(event) {
 
         if (error) {
             // Mostrar mensajes más descriptivos para ayudar al usuario
-            console.error('Error de login:', error);
+            console.error('❌ Error de login:', error);
             
             if (error.message && error.message.includes('Invalid login')) {
                 showNotification('Email o contraseña incorrectos', 'error');
@@ -248,10 +258,17 @@ async function handleLogin(event) {
             return;
         }
 
+        console.log('✅ Login exitoso, datos:', data);
         showNotification('¡Bienvenido de nuevo!', 'success');
+        
+        // El evento onAuthStateChange se encargará de redirigir al dashboard
+        // Pero cerramos los modales inmediatamente
         closeModals();
+        
+        // Esperar un momento para que el evento de auth se dispare
+        // El dashboard se mostrará automáticamente a través de onAuthStateChange
     } catch (error) {
-        console.error('Error en login:', error);
+        console.error('❌ Error en login (catch):', error);
         showNotification('Error al iniciar sesión. Intenta de nuevo.', 'error');
     }
 }
