@@ -2151,23 +2151,61 @@ async function loadMatches() {
         });
         console.log(`📊 Selectores: ${enabledCount} habilitados, ${disabledCount} deshabilitados`);
         
-        // Verificar que las predicciones se aplicaron correctamente
+        // Verificar que las predicciones se aplicaron correctamente y corregir si es necesario
         let appliedCount = 0;
+        let correctedCount = 0;
         matches.forEach(match => {
-            const homeSelect = document.getElementById(`home-${match.id}`);
-            const awaySelect = document.getElementById(`away-${match.id}`);
-            const prediction = userPredictions[match.id];
+            // Normalizar match.id a número para consistencia
+            const matchId = parseInt(match.id);
+            const homeSelect = document.getElementById(`home-${matchId}`);
+            const awaySelect = document.getElementById(`away-${matchId}`);
+            const prediction = userPredictions[matchId];
+            
             if (prediction && homeSelect && awaySelect) {
-                if (homeSelect.value == prediction.home_prediction && awaySelect.value == prediction.away_prediction) {
+                const savedHome = prediction.home_prediction;
+                const savedAway = prediction.away_prediction;
+                const currentHome = homeSelect.value === '' ? null : parseInt(homeSelect.value);
+                const currentAway = awaySelect.value === '' ? null : parseInt(awaySelect.value);
+                
+                // Verificar si los valores coinciden
+                if (currentHome === savedHome && currentAway === savedAway) {
                     appliedCount++;
                 } else {
-                    console.warn(`⚠️ Predicción no aplicada para partido ${match.id}:`, {
-                        saved: `${prediction.home_prediction}-${prediction.away_prediction}`,
-                        shown: `${homeSelect.value}-${awaySelect.value}`
+                    console.warn(`⚠️ Predicción no aplicada para partido ${matchId}:`, {
+                        saved: `${savedHome}-${savedAway}`,
+                        shown: `${currentHome}-${currentAway}`,
+                        homeSelectValue: homeSelect.value,
+                        awaySelectValue: awaySelect.value
                     });
+                    
+                    // Intentar corregir los valores
+                    if (savedHome !== null && savedHome !== undefined) {
+                        homeSelect.value = savedHome.toString();
+                        correctedCount++;
+                    }
+                    if (savedAway !== null && savedAway !== undefined) {
+                        awaySelect.value = savedAway.toString();
+                        correctedCount++;
+                    }
+                    
+                    // Añadir clase 'has-value' si tiene valor
+                    if (savedHome !== null && savedHome !== undefined) {
+                        homeSelect.classList.add('has-value');
+                    } else {
+                        homeSelect.classList.remove('has-value');
+                    }
+                    if (savedAway !== null && savedAway !== undefined) {
+                        awaySelect.classList.add('has-value');
+                    } else {
+                        awaySelect.classList.remove('has-value');
+                    }
                 }
             }
         });
+        
+        if (correctedCount > 0) {
+            console.log(`🔧 Corregidas ${correctedCount} predicciones que no se aplicaron correctamente`);
+        }
         console.log(`✅ Predicciones aplicadas correctamente: ${appliedCount}/${Object.keys(userPredictions).length}`);
         
         // Iniciar actualizaciones en vivo (si la función está disponible)
@@ -2296,7 +2334,14 @@ function createMatchCard(match) {
     
     // Debug: Verificar si hay predicción para este partido
     if (Object.keys(prediction).length > 0) {
-        console.log(`🎯 Partido ${matchId} tiene predicción cargada: ${prediction.home_prediction} - ${prediction.away_prediction}`);
+        console.log(`🎯 Partido ${matchId} tiene predicción cargada:`, {
+            home: prediction.home_prediction,
+            away: prediction.away_prediction,
+            homeType: typeof prediction.home_prediction,
+            awayType: typeof prediction.away_prediction,
+            homeIsNull: prediction.home_prediction === null,
+            awayIsNull: prediction.away_prediction === null
+        });
     } else {
         console.log(`⚠️ Partido ${matchId} NO tiene predicción en userPredictions. Claves disponibles:`, Object.keys(userPredictions).join(', '));
     }
@@ -2413,14 +2458,21 @@ function createMatchCard(match) {
     // Generar opciones del desplegable: "-" por defecto, luego 0-9
     const generateScoreOptions = (selectedValue) => {
         // Verificar si hay un valor válido guardado (incluido el 0)
-        const hasValue = typeof selectedValue === 'number';
+        // Tiene valor si es un número (incluido 0) y no es null/undefined
+        const hasValue = selectedValue !== null && selectedValue !== undefined && !isNaN(selectedValue);
+        const numValue = hasValue ? parseInt(selectedValue) : null;
+        
+        // Debug: Log para verificar el valor
+        if (hasValue) {
+            console.log(`  🎯 Generando opciones para valor: ${numValue} (tipo: ${typeof selectedValue}, original: ${selectedValue})`);
+        }
         
         // Opción vacía "-" como primera opción
         let options = `<option value="" ${!hasValue ? 'selected' : ''}>-</option>`;
         
         // Opciones 0-9
         for (let i = 0; i <= 9; i++) {
-            const isSelected = hasValue && selectedValue === i;
+            const isSelected = hasValue && numValue === i;
             options += `<option value="${i}" ${isSelected ? 'selected' : ''}>${i}</option>`;
         }
         return options;
