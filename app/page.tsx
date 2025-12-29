@@ -3,6 +3,7 @@
 import Script from 'next/script'
 import { useEffect } from 'react'
 
+// Componente principal de la aplicación
 export default function Home() {
   useEffect(() => {
     // Asegurar que las funciones globales están disponibles en window
