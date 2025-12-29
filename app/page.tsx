@@ -1259,6 +1259,45 @@ O formato CSV:
         </div>
       </div>
 
+      {/* Modal Crear Competición */}
+      <div id="create-competition-modal" className="modal">
+        <div className="modal-content">
+          <span className="close-modal" onClick={() => {
+            if (typeof window !== 'undefined' && (window as any).closeModals) {
+              (window as any).closeModals()
+            }
+          }}>&times;</span>
+          <h2><i className="fas fa-plus-circle"></i> Crear Nueva Competición</h2>
+          <form id="create-competition-form" onSubmit={(e) => {
+            e.preventDefault()
+            if (typeof window !== 'undefined' && (window as any).createCompetitionFromForm) {
+              (window as any).createCompetitionFromForm(e)
+            }
+          }}>
+            <div className="form-group">
+              <label htmlFor="competition-name">Nombre de la Competición</label>
+              <input type="text" id="competition-name" required placeholder="Ej: La Liga, Mundial 2026, Eurocopa 2028" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="competition-slug">Slug (opcional)</label>
+              <input type="text" id="competition-slug" placeholder="Se generará automáticamente si lo dejas vacío" />
+              <small className="field-hint">URL amigable (ej: la-liga, mundial-2026)</small>
+            </div>
+            <div className="form-group">
+              <label htmlFor="competition-description">Descripción (opcional)</label>
+              <textarea id="competition-description" rows={3} placeholder="Descripción de la competición..."></textarea>
+            </div>
+            <div className="form-group checkbox-group">
+              <input type="checkbox" id="competition-active" defaultChecked />
+              <label htmlFor="competition-active">Activar competición al crearla</label>
+            </div>
+            <button type="submit" className="btn btn-primary btn-full">
+              <i className="fas fa-plus"></i> Crear Competición
+            </button>
+          </form>
+        </div>
+      </div>
+
       {/* Footer */}
       <footer className="footer">
         <div className="footer-container">

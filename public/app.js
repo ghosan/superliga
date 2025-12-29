@@ -2114,13 +2114,34 @@ function changeJornada(delta) {
 async function loadActiveCompetition() {
     const supabase = getSupabase();
     if (!supabase) {
-        // Si no hay Supabase, mostrar modal para seleccionar
-        await showCompetitionSelectorModal();
+        console.warn('⚠️ Supabase no disponible');
         return;
     }
 
     try {
-        // Intentar cargar desde config (preferido)
+        // Primero, verificar cuántas competiciones activas hay
+        const { data: activeCompetitions, error: countError } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('competitions')
+                .select('id, name, is_active')
+                .eq('is_active', true)
+        , 5000).catch(() => ({ data: [], error: null }));
+
+        if (countError) {
+            console.warn('⚠️ Error contando competiciones activas:', countError);
+        }
+
+        // Si hay más de una competición activa, mostrar modal para seleccionar
+        if (activeCompetitions && activeCompetitions.length > 1) {
+            console.log(`📊 ${activeCompetitions.length} competiciones activas encontradas, mostrando selector`);
+            await showCompetitionSelectorModal();
+            return;
+        }
+
+        // Si hay 0 o 1 competición activa, usar la guardada o la única disponible
+        let savedCompetitionId = null;
+
+        // Intentar cargar desde config
         const { data, error } = await executeQueryWithTimeout(() =>
             supabase
                 .from('config')
@@ -2128,8 +2149,6 @@ async function loadActiveCompetition() {
                 .eq('key', 'active_competition_id')
                 .single()
         , 5000).catch(() => ({ data: null, error: null }));
-
-        let savedCompetitionId = null;
 
         if (data && data.value) {
             savedCompetitionId = parseInt(data.value) || null;
@@ -2139,32 +2158,32 @@ async function loadActiveCompetition() {
             savedCompetitionId = saved ? parseInt(saved) : null;
         }
 
-        // Si hay competición guardada, cargarla
+        // Si no hay competición guardada pero hay una activa, usar esa
+        if (!savedCompetitionId && activeCompetitions && activeCompetitions.length === 1) {
+            savedCompetitionId = activeCompetitions[0].id;
+        }
+
+        // Si hay competición guardada o encontrada, cargarla
         if (savedCompetitionId) {
             currentCompetitionId = savedCompetitionId;
-            // Verificar que la competición existe
             await loadCompetitionData(currentCompetitionId);
             
-            // Si la competición no existe o no está activa, mostrar modal
-            if (!currentCompetition || !currentCompetition.is_active) {
-                console.warn('⚠️ Competición guardada no existe o está inactiva, mostrando selector');
-                await showCompetitionSelectorModal();
-                return;
+            // Si la competición no existe, intentar usar la primera activa
+            if (!currentCompetition && activeCompetitions && activeCompetitions.length > 0) {
+                currentCompetitionId = activeCompetitions[0].id;
+                await loadCompetitionData(currentCompetitionId);
             }
             
-            // Competición válida, guardar en config si es necesario
+            // Guardar en config si es necesario
             if (!data || !data.value) {
                 await saveActiveCompetitionToConfig(currentCompetitionId);
             }
-        } else {
-            // No hay competición guardada, mostrar modal
-            await showCompetitionSelectorModal();
-            return;
+        } else if (activeCompetitions && activeCompetitions.length === 0) {
+            console.warn('⚠️ No hay competiciones activas');
         }
         
     } catch (error) {
-        console.warn('⚠️ Error cargando competición activa, mostrando selector:', error);
-        await showCompetitionSelectorModal();
+        console.warn('⚠️ Error cargando competición activa:', error);
     }
 }
 
@@ -2222,11 +2241,14 @@ async function showCompetitionSelectorModal() {
 }
 
 /**
- * Cargar competiciones en el modal de selección
+ * Cargar competiciones en el modal de selección (solo activas)
  */
 async function loadCompetitionsForModal() {
     const container = document.getElementById('competitions-list-modal');
-    if (!container) return;
+    if (!container) {
+        console.error('❌ Container competitions-list-modal no encontrado');
+        return;
+    }
 
     container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Cargando competiciones...</div>';
 
@@ -2264,20 +2286,23 @@ async function loadCompetitionsForModal() {
         }
 
         // Renderizar tarjetas de competiciones
-        container.innerHTML = competitions.map(comp => `
-            <div class="competition-card-modal" onclick="selectCompetition(${comp.id}, '${escapeHtml(comp.name)}')">
+        container.innerHTML = competitions.map(comp => {
+            const isSelected = comp.id === currentCompetitionId;
+            return `
+            <div class="competition-card-modal ${isSelected ? 'selected' : ''}" onclick="selectCompetition(${comp.id}, '${escapeHtml(comp.name)}')">
                 <div class="competition-card-icon">
                     <i class="fas fa-trophy"></i>
                 </div>
                 <div class="competition-card-content">
-                    <h3>${escapeHtml(comp.name)}</h3>
+                    <h3>${escapeHtml(comp.name)}${isSelected ? ' <span style="color: var(--blue-500); font-size: 14px;">(Actual)</span>' : ''}</h3>
                     ${comp.description ? `<p>${escapeHtml(comp.description)}</p>` : ''}
                 </div>
                 <div class="competition-card-arrow">
                     <i class="fas fa-chevron-right"></i>
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
 
     } catch (error) {
         console.error('Error:', error);
@@ -5497,8 +5522,9 @@ if (typeof window !== 'undefined') {
     window.selectCompetition = selectCompetition;
     window.loadCompetitionsList = loadCompetitionsList;
     window.showCreateCompetitionModal = showCreateCompetitionModal;
-    window.createCompetition = createCompetition;
+    window.createCompetitionFromForm = createCompetitionFromForm;
     window.activateCompetition = activateCompetition;
+    window.deleteCompetition = deleteCompetition;
 }
 
 // ========================================
@@ -5558,11 +5584,12 @@ async function loadCompetitionsList() {
                     </div>
                 </div>
                 <div style="display: flex; gap: 8px; margin-top: 12px;">
-                    ${!comp.is_active || comp.id !== currentCompetitionId ? `
-                        <button class="btn btn-primary btn-small" onclick="activateCompetition(${comp.id})">
-                            <i class="fas fa-check"></i> Activar
-                        </button>
-                    ` : ''}
+                    <button class="btn ${comp.is_active ? 'btn-secondary' : 'btn-primary'} btn-small" onclick="activateCompetition(${comp.id}, ${!comp.is_active})">
+                        <i class="fas ${comp.is_active ? 'fa-times' : 'fa-check'}"></i> ${comp.is_active ? 'Desactivar' : 'Activar'}
+                    </button>
+                    <button class="btn btn-danger btn-small" onclick="deleteCompetition(${comp.id}, '${escapeHtml(comp.name)}')">
+                        <i class="fas fa-trash"></i> Eliminar
+                    </button>
                 </div>
             </div>
         `).join('');
@@ -5576,43 +5603,62 @@ async function loadCompetitionsList() {
  * Mostrar modal para crear competición
  */
 function showCreateCompetitionModal() {
+    closeModals();
     const modal = document.getElementById('create-competition-modal');
     if (!modal) {
-        // Si no existe el modal, crear uno temporal
-        const form = prompt('Nombre de la competición:');
-        if (form) {
-            createCompetition({ name: form, slug: form.toLowerCase().replace(/\s+/g, '-') });
-        }
+        showNotification('Error: Modal no encontrado', 'error');
         return;
     }
+    
+    // Limpiar formulario
+    document.getElementById('competition-name').value = '';
+    document.getElementById('competition-slug').value = '';
+    document.getElementById('competition-description').value = '';
+    document.getElementById('competition-active').checked = true;
+    
     modal.classList.add('active');
 }
 
 /**
- * Crear nueva competición
+ * Crear competición desde formulario
  */
-async function createCompetition(formData) {
+async function createCompetitionFromForm(event) {
+    event.preventDefault();
+    
     const supabase = getSupabase();
     if (!supabase) {
         showNotification('Error de conexión', 'error');
         return;
     }
 
-    const name = formData?.name || prompt('Nombre de la competición:');
-    if (!name) return;
+    const name = document.getElementById('competition-name').value.trim();
+    if (!name) {
+        showNotification('El nombre es obligatorio', 'error');
+        return;
+    }
 
-    const slug = formData?.slug || name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    const description = formData?.description || '';
+    let slug = document.getElementById('competition-slug').value.trim();
+    if (!slug) {
+        // Generar slug automáticamente
+        slug = name.toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+    }
+    
+    const description = document.getElementById('competition-description').value.trim();
+    const isActive = document.getElementById('competition-active').checked;
 
     try {
         const { data, error } = await executeQueryWithTimeout(() =>
             supabase
                 .from('competitions')
                 .insert({
-                    name: name.trim(),
-                    slug: slug.trim(),
-                    description: description.trim(),
-                    is_active: true
+                    name: name,
+                    slug: slug,
+                    description: description || null,
+                    is_active: isActive
                 })
                 .select()
                 .single()
@@ -5622,10 +5668,12 @@ async function createCompetition(formData) {
 
         showNotification(`Competición "${name}" creada correctamente`, 'success');
         loadCompetitionsList();
+        closeModals();
         
-        // Cerrar modal si existe
-        const modal = document.getElementById('create-competition-modal');
-        if (modal) modal.classList.remove('active');
+        // Si se activó y hay más de una activa, mostrar modal de selección
+        if (isActive) {
+            await loadActiveCompetition();
+        }
     } catch (error) {
         console.error('Error creando competición:', error);
         showNotification('Error al crear competición: ' + (error.message || 'Error desconocido'), 'error');
@@ -5633,10 +5681,62 @@ async function createCompetition(formData) {
 }
 
 /**
- * Activar una competición (cambiar competición activa)
+ * Activar/desactivar una competición (permitir múltiples activas)
  */
-async function activateCompetition(competitionId) {
-    if (!confirm('¿Cambiar la competición activa? Esto cambiará los datos que verás en toda la aplicación.')) {
+async function activateCompetition(competitionId, activate = true) {
+    const supabase = getSupabase();
+    if (!supabase) {
+        showNotification('Error de conexión', 'error');
+        return;
+    }
+
+    try {
+        // Obtener estado actual de la competición
+        const { data: comp, error: fetchError } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('competitions')
+                .select('id, name, is_active')
+                .eq('id', competitionId)
+                .single()
+        , 5000);
+
+        if (fetchError || !comp) {
+            throw new Error('Competición no encontrada');
+        }
+
+        // Actualizar estado (permitir múltiples activas)
+        const { error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('competitions')
+                .update({ is_active: activate })
+                .eq('id', competitionId)
+        , 5000);
+
+        if (error) throw error;
+
+        showNotification(
+            `Competición "${comp.name}" ${activate ? 'activada' : 'desactivada'} correctamente`, 
+            'success'
+        );
+        
+        // Recargar lista
+        await loadCompetitionsList();
+
+        // Si se desactivó la competición actual, recargar competición activa
+        if (!activate && competitionId === currentCompetitionId) {
+            await loadActiveCompetition();
+        }
+    } catch (error) {
+        console.error('Error cambiando estado de competición:', error);
+        showNotification('Error: ' + (error.message || 'Error desconocido'), 'error');
+    }
+}
+
+/**
+ * Eliminar una competición
+ */
+async function deleteCompetition(competitionId, competitionName) {
+    if (!confirm(`¿Estás seguro de eliminar la competición "${competitionName}"?\n\nEsta acción eliminará la competición y no se puede deshacer.`)) {
         return;
     }
 
@@ -5647,40 +5747,57 @@ async function activateCompetition(competitionId) {
     }
 
     try {
-        // Actualizar todas las competiciones para desactivarlas
-        await executeQueryWithTimeout(() =>
+        // Verificar si hay partidos o ligas asociados
+        const { data: matches } = await executeQueryWithTimeout(() =>
             supabase
-                .from('competitions')
-                .update({ is_active: false })
-        , 5000);
+                .from('matches')
+                .select('id')
+                .eq('competition_id', competitionId)
+                .limit(1)
+        , 5000).catch(() => ({ data: [] }));
 
-        // Activar la competición seleccionada
+        const { data: ligas } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('ligas')
+                .select('id')
+                .eq('competition_id', competitionId)
+                .limit(1)
+        , 5000).catch(() => ({ data: [] }));
+
+        if (matches && matches.length > 0) {
+            if (!confirm(`Esta competición tiene partidos asociados. ¿Eliminar de todas formas?`)) {
+                return;
+            }
+        }
+
+        if (ligas && ligas.length > 0) {
+            if (!confirm(`Esta competición tiene ligas asociadas. ¿Eliminar de todas formas?`)) {
+                return;
+            }
+        }
+
+        // Eliminar competición
         const { error } = await executeQueryWithTimeout(() =>
             supabase
                 .from('competitions')
-                .update({ is_active: true })
+                .delete()
                 .eq('id', competitionId)
         , 5000);
 
         if (error) throw error;
 
-        // Guardar como competición activa
-        currentCompetitionId = competitionId;
-        await saveActiveCompetitionToConfig(competitionId);
-        await loadCompetitionData(competitionId);
-        await loadCompetitionSelector();
+        showNotification(`Competición "${competitionName}" eliminada correctamente`, 'success');
+        
+        // Recargar lista
+        await loadCompetitionsList();
 
-        showNotification('Competición activada correctamente', 'success');
-        loadCompetitionsList();
-
-        // Recargar datos
-        const activePage = document.querySelector('.section.active')?.id;
-        if (activePage === 'dashboard-section' && typeof loadDashboard === 'function') {
-            loadDashboard();
+        // Si se eliminó la competición actual, recargar competición activa
+        if (competitionId === currentCompetitionId) {
+            await loadActiveCompetition();
         }
     } catch (error) {
-        console.error('Error activando competición:', error);
-        showNotification('Error al activar competición: ' + (error.message || 'Error desconocido'), 'error');
+        console.error('Error eliminando competición:', error);
+        showNotification('Error al eliminar competición: ' + (error.message || 'Error desconocido'), 'error');
     }
 }
 
