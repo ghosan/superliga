@@ -160,14 +160,18 @@ function showRulesModal() {
 
 function closeModals() {
     document.querySelectorAll('.modal').forEach(modal => {
-        modal.classList.remove('active');
+        // NO cerrar el modal de selección de competición (debe permanecer hasta que el usuario seleccione)
+        if (modal.id !== 'competition-selector-modal') {
+            modal.classList.remove('active');
+        }
     });
 }
 
-// Cerrar modal al hacer clic fuera
+// Cerrar modal al hacer clic fuera (excepto el modal de competición)
 document.querySelectorAll('.modal').forEach(modal => {
     modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
+        // NO permitir cerrar el modal de competición haciendo clic fuera
+        if (e.target === modal && modal.id !== 'competition-selector-modal') {
             closeModals();
         }
     });
