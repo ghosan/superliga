@@ -600,8 +600,8 @@ async function handleLogout() {
         userPredictions = {};
         
         // Ocultar link de admin
-        const adminLink = document.getElementById('admin-nav-link');
-        if (adminLink) adminLink.style.display = 'none';
+        const adminBtn = document.getElementById('admin-header-btn');
+        if (adminBtn) adminBtn.style.display = 'none';
         
         // Mostrar página de inicio
         showLandingPage();
@@ -710,14 +710,14 @@ async function loadUserProfile() {
 function updateAdminVisibility() {
     console.log('🔍 updateAdminVisibility llamado. isAdmin =', isAdmin);
     
-    const adminLink = document.getElementById('admin-nav-link');
+    const adminBtn = document.getElementById('admin-header-btn');
     
-    if (!adminLink) {
-        console.error('❌ No se encontró el elemento admin-nav-link');
+    if (!adminBtn) {
+        console.error('❌ No se encontró el elemento admin-header-btn');
         // Intentar de nuevo después de un pequeño delay
         setTimeout(() => {
-            const retryLink = document.getElementById('admin-nav-link');
-            if (retryLink) {
+            const retryBtn = document.getElementById('admin-header-btn');
+            if (retryBtn) {
                 console.log('✅ Elemento encontrado en reintento');
                 updateAdminVisibility();
             }
@@ -726,7 +726,7 @@ function updateAdminVisibility() {
     }
     
     if (isAdmin) {
-        adminLink.style.display = 'flex';
+        adminBtn.style.display = 'flex';
         adminLink.style.visibility = 'visible';
         adminLink.style.opacity = '1';
         adminLink.classList.add('active');
@@ -6016,6 +6016,7 @@ if (typeof window !== 'undefined') {
     window.resetAllUserPoints = resetAllUserPoints;
     window.onAdminPartidosCompetitionChange = onAdminPartidosCompetitionChange;
     window.onAdminResultadosCompetitionChange = onAdminResultadosCompetitionChange;
+    window.deleteMatch = deleteMatch;
     window.onDashboardStatisticsLigaChange = onDashboardStatisticsLigaChange;
     window.onDashboardClassificationLigaChange = onDashboardClassificationLigaChange;
     window.changeCompetition = changeCompetition;
@@ -6026,6 +6027,118 @@ if (typeof window !== 'undefined') {
     window.createCompetitionFromForm = createCompetitionFromForm;
     window.activateCompetition = activateCompetition;
     window.deleteCompetition = deleteCompetition;
+    window.showAdminDashboard = showAdminDashboard;
+    window.closeAdminDashboard = closeAdminDashboard;
+    window.openAdminTab = openAdminTab;
+    window.closeAdminPanel = closeAdminPanel;
+}
+
+// ========================================
+// DASHBOARD DE ADMINISTRACIÓN
+// ========================================
+function showAdminDashboard() {
+    const modal = document.getElementById('admin-dashboard-modal');
+    if (!modal) return;
+    
+    // Cerrar cualquier otro modal abierto
+    closeAllModals();
+    
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+}
+
+function closeAdminDashboard() {
+    const modal = document.getElementById('admin-dashboard-modal');
+    if (!modal) return;
+    
+    modal.classList.remove('active');
+    modal.style.display = 'none';
+}
+
+function openAdminTab(tabName) {
+    // Cerrar el dashboard principal
+    closeAdminDashboard();
+    
+    // Abrir el panel detallado
+    const panelModal = document.getElementById('admin-panel-modal');
+    if (!panelModal) return;
+    
+    // Copiar el contenido de la sección admin al panel modal
+    const adminSection = document.getElementById('admin-section');
+    const panelContainer = document.getElementById('admin-panel-tabs-container');
+    
+    if (adminSection && panelContainer) {
+        // Limpiar el contenedor
+        panelContainer.innerHTML = '';
+        
+        // Copiar todas las pestañas
+        const tabs = adminSection.querySelectorAll('[id$="-admin-tab"]');
+        tabs.forEach(tab => {
+            const clonedTab = tab.cloneNode(true);
+            clonedTab.id = 'admin-tab-' + tab.id.replace('-admin-tab', '');
+            clonedTab.classList.add('admin-tab-panel');
+            clonedTab.style.display = 'none';
+            panelContainer.appendChild(clonedTab);
+        });
+    }
+    
+    // Mostrar la pestaña seleccionada
+    const tabPanel = document.getElementById('admin-tab-' + tabName);
+    if (tabPanel) {
+        tabPanel.style.display = 'block';
+    }
+    
+    // Actualizar el título
+    const titleMap = {
+        'partidos': 'Gestionar Partidos',
+        'resultados': 'Introducir Resultados',
+        'competiciones': 'Gestionar Competiciones',
+        'usuarios': 'Gestionar Usuarios',
+        'puntos': 'Editar Puntos',
+        'reiniciar': 'Reiniciar Liga'
+    };
+    const titleEl = document.getElementById('admin-panel-title');
+    if (titleEl) {
+        titleEl.innerHTML = `<i class="fas fa-cog"></i> ${titleMap[tabName] || 'Panel de Administración'}`;
+    }
+    
+    // Mostrar el modal
+    panelModal.classList.add('active');
+    panelModal.style.display = 'flex';
+    
+    // Cargar los datos según la pestaña
+    if (tabName === 'partidos') {
+        loadAdminPartidosCompetitionSelector();
+    } else if (tabName === 'resultados') {
+        loadAdminResultadosCompetitionSelector();
+    } else if (tabName === 'competiciones') {
+        loadCompetitionsList();
+    } else if (tabName === 'usuarios') {
+        loadUsersList();
+    } else if (tabName === 'puntos') {
+        loadLigasForEditPoints();
+    } else if (tabName === 'reiniciar') {
+        loadLigasForReset();
+    }
+    
+    // Cargar datos generales
+    loadAdminData();
+}
+
+function closeAdminPanel() {
+    const panelModal = document.getElementById('admin-panel-modal');
+    if (!panelModal) return;
+    
+    panelModal.classList.remove('active');
+    panelModal.style.display = 'none';
+}
+
+function closeAllModals() {
+    // Cerrar todos los modales
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.classList.remove('active');
+        modal.style.display = 'none';
+    });
 }
 
 // ========================================

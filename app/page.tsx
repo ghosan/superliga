@@ -334,9 +334,16 @@ export default function Home() {
             <a href="#" className="nav-link" data-page="estadisticas">
               <i className="fas fa-chart-bar"></i> Estadísticas
             </a>
-            <a href="#" className="nav-link admin-link" data-page="admin" id="admin-nav-link" style={{display: 'none'}}>
-              <i className="fas fa-cog"></i> Admin
-            </a>
+          </div>
+          <div className="nav-admin">
+            <button className="btn btn-admin" id="admin-header-btn" style={{display: 'none'}} onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).showAdminDashboard) {
+                (window as any).showAdminDashboard()
+              }
+            }}>
+              <i className="fas fa-cog"></i>
+              <span>Admin</span>
+            </button>
           </div>
           <div className="nav-user">
             <button className="user-profile-btn" onClick={() => {
@@ -1319,6 +1326,161 @@ O formato CSV:
               <i className="fas fa-plus"></i> Crear Competición
             </button>
           </form>
+        </div>
+      </div>
+
+      {/* Dashboard de Administración - Modal Principal */}
+      <div id="admin-dashboard-modal" className="modal admin-dashboard-modal">
+        <div className="modal-content admin-modal-content">
+          <div className="admin-modal-header">
+            <div>
+              <h2><i className="fas fa-shield-alt"></i> Panel de Administración</h2>
+              <p className="admin-subtitle">Centro de Control - Gestiona todas las competiciones, partidos y usuarios</p>
+            </div>
+            <span className="close-modal" onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).closeAdminDashboard) {
+                (window as any).closeAdminDashboard()
+              }
+            }}>&times;</span>
+          </div>
+          
+          <div className="admin-dashboard-grid">
+            {/* Tarjeta: Gestionar Partidos */}
+            <div className="admin-card-large" onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).openAdminTab) {
+                (window as any).openAdminTab('partidos')
+              }
+            }}>
+              <div className="admin-card-icon partidos">
+                <i className="fas fa-calendar-alt"></i>
+              </div>
+              <div className="admin-card-content">
+                <h3>Gestionar Partidos</h3>
+                <p>Importar, crear y eliminar partidos de las competiciones</p>
+              </div>
+              <div className="admin-card-arrow">
+                <i className="fas fa-chevron-right"></i>
+              </div>
+            </div>
+
+            {/* Tarjeta: Introducir Resultados */}
+            <div className="admin-card-large" onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).openAdminTab) {
+                (window as any).openAdminTab('resultados')
+              }
+            }}>
+              <div className="admin-card-icon resultados">
+                <i className="fas fa-futbol"></i>
+              </div>
+              <div className="admin-card-content">
+                <h3>Introducir Resultados</h3>
+                <p>Actualizar resultados de partidos y calcular puntos</p>
+              </div>
+              <div className="admin-card-arrow">
+                <i className="fas fa-chevron-right"></i>
+              </div>
+            </div>
+
+            {/* Tarjeta: Competiciones */}
+            <div className="admin-card-large" onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).openAdminTab) {
+                (window as any).openAdminTab('competiciones')
+              }
+            }}>
+              <div className="admin-card-icon competiciones">
+                <i className="fas fa-trophy"></i>
+              </div>
+              <div className="admin-card-content">
+                <h3>Gestionar Competiciones</h3>
+                <p>Crear, activar y gestionar competiciones (Liga, Mundial, etc.)</p>
+              </div>
+              <div className="admin-card-arrow">
+                <i className="fas fa-chevron-right"></i>
+              </div>
+            </div>
+
+            {/* Tarjeta: Usuarios */}
+            <div className="admin-card-large" onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).openAdminTab) {
+                (window as any).openAdminTab('usuarios')
+              }
+            }}>
+              <div className="admin-card-icon usuarios">
+                <i className="fas fa-users"></i>
+              </div>
+              <div className="admin-card-content">
+                <h3>Gestionar Usuarios</h3>
+                <p>Ver usuarios, competiciones y ligas de cada uno</p>
+              </div>
+              <div className="admin-card-arrow">
+                <i className="fas fa-chevron-right"></i>
+              </div>
+            </div>
+
+            {/* Tarjeta: Editar Puntos */}
+            <div className="admin-card-large" onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).openAdminTab) {
+                (window as any).openAdminTab('puntos')
+              }
+            }}>
+              <div className="admin-card-icon puntos">
+                <i className="fas fa-edit"></i>
+              </div>
+              <div className="admin-card-content">
+                <h3>Editar Puntos</h3>
+                <p>Modificar puntos de usuarios en ligas específicas</p>
+              </div>
+              <div className="admin-card-arrow">
+                <i className="fas fa-chevron-right"></i>
+              </div>
+            </div>
+
+            {/* Tarjeta: Reiniciar Liga */}
+            <div className="admin-card-large" onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).openAdminTab) {
+                (window as any).openAdminTab('reiniciar')
+              }
+            }}>
+              <div className="admin-card-icon reiniciar">
+                <i className="fas fa-redo"></i>
+              </div>
+              <div className="admin-card-content">
+                <h3>Reiniciar Liga</h3>
+                <p>Eliminar todos los puntos de una liga específica</p>
+              </div>
+              <div className="admin-card-arrow">
+                <i className="fas fa-chevron-right"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Panel de Administración Detallado - Modal */}
+      <div id="admin-panel-modal" className="modal admin-panel-modal">
+        <div className="modal-content admin-panel-content">
+          <div className="admin-panel-header">
+            <button className="admin-back-btn" onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).showAdminDashboard) {
+                (window as any).showAdminDashboard()
+              }
+            }}>
+              <i className="fas fa-arrow-left"></i> Volver
+            </button>
+            <h2 id="admin-panel-title"><i className="fas fa-cog"></i> Panel de Administración</h2>
+            <span className="close-modal" onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).closeAdminPanel) {
+                (window as any).closeAdminPanel()
+              }
+            }}>&times;</span>
+          </div>
+          
+          <div className="admin-panel-body">
+            {/* Las pestañas detalladas se cargarán aquí dinámicamente desde admin-section */}
+            <div id="admin-panel-tabs-container">
+              {/* Se copiará el contenido desde admin-section */}
+            </div>
+          </div>
         </div>
       </div>
 
