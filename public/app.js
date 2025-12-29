@@ -782,9 +782,12 @@ async function loadDashboard() {
 
     try {
         // Cargar todos los datos del dashboard en paralelo
+        // Cargar selector de ligas para estadísticas primero
+        await loadDashboardStatisticsLigaSelector();
+        
         await Promise.all([
             loadDashboardSummary(),
-            loadDashboardStatistics(),
+            loadDashboardStatistics(), // Ahora puede recibir ligaId del selector
             loadDashboardJornada(),
             loadDashboardTopLigas(),
             loadDashboardActivity()
@@ -852,80 +855,191 @@ async function loadDashboardSummary() {
     }
 }
 
-async function loadDashboardStatistics() {
+// Cargar selector de ligas para estadísticas del dashboard
+async function loadDashboardStatisticsLigaSelector() {
     if (!currentUser) return;
     
     const supabase = window.supabase || window.supabaseClient;
     if (!supabase) return;
 
     try {
-        // Obtener todas las predicciones del usuario
-        const { data: predictions, error: predError } = await executeQueryWithTimeout(() =>
+        const { data: userLigas, error } = await executeQueryWithTimeout(() =>
             supabase
-                .from('predictions')
-                .select('points, matches(jornada)')
+                .from('liga_members')
+                .select('liga_id, ligas(id, name)')
                 .eq('user_id', currentUser.id)
-        , 8000).catch(() => ({ data: [], error: null }));
+        , 8000);
 
-        const predictedCount = predictions?.length || 0;
-        const totalPoints = predictions?.reduce((sum, p) => sum + (p.points || 0), 0) || 0;
-        const avgPoints = predictedCount > 0 ? (totalPoints / predictedCount).toFixed(1) : '0';
+        if (error) throw error;
 
-        // Calcular puntos por jornada
-        const pointsByJornada = {};
-        if (predictions) {
-            predictions.forEach(p => {
-                const jornada = p.matches?.jornada;
-                if (jornada) {
-                    pointsByJornada[jornada] = (pointsByJornada[jornada] || 0) + (p.points || 0);
+        const select = document.getElementById('dashboard-statistics-liga-select');
+        if (!select) return;
+
+        // Limpiar opciones
+        select.innerHTML = '<option value="">Selecciona una liga</option>';
+
+        if (userLigas && userLigas.length > 0) {
+            userLigas.forEach(item => {
+                if (item.ligas) {
+                    select.innerHTML += `<option value="${item.ligas.id}">${item.ligas.name}</option>`;
                 }
             });
+
+            // Si solo hay una liga, seleccionarla automáticamente
+            if (userLigas.length === 1 && userLigas[0].ligas) {
+                select.value = userLigas[0].ligas.id;
+                loadDashboardStatistics(userLigas[0].ligas.id);
+            }
+        } else {
+            select.innerHTML = '<option value="">No perteneces a ninguna liga</option>';
+        }
+    } catch (error) {
+        console.error('Error cargando ligas para estadísticas:', error);
+        const select = document.getElementById('dashboard-statistics-liga-select');
+        if (select) {
+            select.innerHTML = '<option value="">Error al cargar ligas</option>';
+        }
+    }
+}
+
+async function loadDashboardStatistics(ligaId = null) {
+    if (!currentUser) return;
+    
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase) return;
+
+    // Si no se proporciona ligaId, intentar obtenerlo del selector
+    if (!ligaId) {
+        const select = document.getElementById('dashboard-statistics-liga-select');
+        ligaId = select ? parseInt(select.value) : null;
+    }
+
+    // Si aún no hay ligaId, no cargar estadísticas
+    if (!ligaId) {
+        // Limpiar estadísticas
+        const predictedEl = document.getElementById('dashboard-predicted-matches');
+        if (predictedEl) predictedEl.textContent = '0';
+        const avgEl = document.getElementById('dashboard-avg-points');
+        if (avgEl) avgEl.textContent = '0';
+        const avgJornadaEl = document.getElementById('dashboard-avg-jornada');
+        if (avgJornadaEl) avgJornadaEl.textContent = '0';
+        const chartEl = document.getElementById('dashboard-jornada-chart');
+        if (chartEl) chartEl.innerHTML = '<p class="no-data">Selecciona una liga para ver estadísticas</p>';
+        return;
+    }
+
+    try {
+        // Construir consulta base
+        let query = supabase
+            .from('predictions')
+            .select('points, matches(jornada)')
+            .eq('user_id', currentUser.id);
+
+        // Filtrar por liga_id si existe la columna (con manejo de errores)
+        try {
+            query = query.eq('liga_id', ligaId);
+        } catch (e) {
+            // Si la columna no existe, continuar sin filtrar
+            console.warn('⚠️ Columna liga_id no existe en predictions, cargando todas las predicciones');
         }
 
-        // Calcular promedio por jornada
-        const jornadas = Object.keys(pointsByJornada);
-        const avgJornada = jornadas.length > 0 
-            ? (Object.values(pointsByJornada).reduce((a, b) => a + b, 0) / jornadas.length).toFixed(0)
-            : '0';
+        const { data: predictions, error: predError } = await executeQueryWithTimeout(() => query, 8000).catch(() => ({ data: [], error: null }));
 
-        // Actualizar estadísticas
-        const predictedEl = document.getElementById('dashboard-predicted-matches');
-        if (predictedEl) predictedEl.textContent = predictedCount;
+        // Si hay error relacionado con liga_id, intentar sin filtrar
+        if (predError && (predError.message?.includes('liga_id') || predError.code === '42703')) {
+            console.warn('⚠️ Error con liga_id, cargando todas las predicciones y filtrando en memoria');
+            const { data: allPredictions } = await executeQueryWithTimeout(() =>
+                supabase
+                    .from('predictions')
+                    .select('points, matches(jornada), liga_id')
+                    .eq('user_id', currentUser.id)
+            , 8000).catch(() => ({ data: [] }));
 
-        const avgEl = document.getElementById('dashboard-avg-points');
-        if (avgEl) avgEl.textContent = avgPoints;
+            // Filtrar en memoria
+            const filteredPredictions = allPredictions?.filter(p => {
+                if (p.liga_id !== undefined && p.liga_id !== null) {
+                    return parseInt(p.liga_id) === ligaId;
+                }
+                // Si no tiene liga_id, incluirla (compatibilidad)
+                return true;
+            }) || [];
 
-        const avgJornadaEl = document.getElementById('dashboard-avg-jornada');
-        if (avgJornadaEl) avgJornadaEl.textContent = avgJornada;
-
-        // Crear gráfico simple de barras
-        const chartEl = document.getElementById('dashboard-jornada-chart');
-        if (chartEl && jornadas.length > 0) {
-            const maxPoints = Math.max(...Object.values(pointsByJornada));
-            const sortedJornadas = jornadas.sort((a, b) => parseInt(a) - parseInt(b)).slice(-5); // Últimas 5 jornadas
-            
-            chartEl.innerHTML = `
-                <div class="chart-container">
-                    ${sortedJornadas.map(j => {
-                        const points = pointsByJornada[j] || 0;
-                        const height = maxPoints > 0 ? (points / maxPoints * 100) : 0;
-                        return `
-                            <div class="chart-bar-wrapper">
-                                <div class="chart-bar" style="height: ${height}%">
-                                    <span class="chart-value">${points}</span>
-                                </div>
-                                <span class="chart-label">J${j}</span>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            `;
-        } else if (chartEl) {
-            chartEl.innerHTML = '<p class="no-data">Aún no hay datos para mostrar</p>';
+            processDashboardStatistics(filteredPredictions);
+        } else {
+            processDashboardStatistics(predictions || []);
         }
 
     } catch (error) {
         console.error('Error cargando estadísticas:', error);
+    }
+}
+
+function processDashboardStatistics(predictions) {
+    const predictedCount = predictions?.length || 0;
+    const totalPoints = predictions?.reduce((sum, p) => sum + (p.points || 0), 0) || 0;
+    const avgPoints = predictedCount > 0 ? (totalPoints / predictedCount).toFixed(1) : '0';
+
+    // Calcular puntos por jornada
+    const pointsByJornada = {};
+    if (predictions) {
+        predictions.forEach(p => {
+            const jornada = p.matches?.jornada;
+            if (jornada) {
+                pointsByJornada[jornada] = (pointsByJornada[jornada] || 0) + (p.points || 0);
+            }
+        });
+    }
+
+    // Calcular promedio por jornada
+    const jornadas = Object.keys(pointsByJornada);
+    const avgJornada = jornadas.length > 0 
+        ? (Object.values(pointsByJornada).reduce((a, b) => a + b, 0) / jornadas.length).toFixed(0)
+        : '0';
+
+    // Actualizar estadísticas
+    const predictedEl = document.getElementById('dashboard-predicted-matches');
+    if (predictedEl) predictedEl.textContent = predictedCount;
+
+    const avgEl = document.getElementById('dashboard-avg-points');
+    if (avgEl) avgEl.textContent = avgPoints;
+
+    const avgJornadaEl = document.getElementById('dashboard-avg-jornada');
+    if (avgJornadaEl) avgJornadaEl.textContent = avgJornada;
+
+    // Crear gráfico simple de barras
+    const chartEl = document.getElementById('dashboard-jornada-chart');
+    if (chartEl && jornadas.length > 0) {
+        const maxPoints = Math.max(...Object.values(pointsByJornada));
+        const sortedJornadas = jornadas.sort((a, b) => parseInt(a) - parseInt(b)).slice(-5); // Últimas 5 jornadas
+        
+        chartEl.innerHTML = `
+            <div class="chart-container">
+                ${sortedJornadas.map(j => {
+                    const points = pointsByJornada[j] || 0;
+                    const height = maxPoints > 0 ? (points / maxPoints * 100) : 0;
+                    return `
+                        <div class="chart-bar-wrapper">
+                            <div class="chart-bar" style="height: ${height}%">
+                                <span class="chart-value">${points}</span>
+                            </div>
+                            <span class="chart-label">J${j}</span>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    } else if (chartEl) {
+        chartEl.innerHTML = '<p class="no-data">Aún no hay datos para mostrar</p>';
+    }
+}
+
+// Función para manejar cambio de liga en estadísticas
+function onDashboardStatisticsLigaChange() {
+    const select = document.getElementById('dashboard-statistics-liga-select');
+    if (select && select.value) {
+        loadDashboardStatistics(parseInt(select.value));
+    } else {
+        loadDashboardStatistics(null);
     }
 }
 
@@ -4837,6 +4951,7 @@ if (typeof window !== 'undefined') {
     window.resetWeb = resetWeb;
     window.resetAllUserPoints = resetAllUserPoints;
     window.deleteLiga = deleteLiga;
+    window.onDashboardStatisticsLigaChange = onDashboardStatisticsLigaChange;
 }
 
 // ========================================

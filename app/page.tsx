@@ -386,7 +386,14 @@ export default function Home() {
               <div className="dashboard-column">
                 <div className="dashboard-card">
                   <div className="dashboard-card-header">
-                    <h3><i className="fas fa-chart-bar"></i> Estadísticas</h3>
+                    <h3><i className="fas fa-chart-bar"></i> Estadísticas totales de la liga</h3>
+                    <select id="dashboard-statistics-liga-select" className="liga-selector-small" onChange={() => {
+                      if (typeof window !== 'undefined' && (window as any).onDashboardStatisticsLigaChange) {
+                        (window as any).onDashboardStatisticsLigaChange();
+                      }
+                    }}>
+                      <option value="">Cargando ligas...</option>
+                    </select>
                   </div>
                   <div className="dashboard-card-content">
                     <div className="stat-item">
