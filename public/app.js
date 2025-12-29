@@ -58,7 +58,10 @@ async function initializeApp() {
             await loadUserProfile();
             // Primero mostrar el dashboard
             await showDashboard();
+            // Esperar un momento para que el DOM esté completamente listo
+            await new Promise(resolve => setTimeout(resolve, 300));
             // Después cargar competición activa (mostrará modal si hay múltiples)
+            // Esto se ejecuta cada vez que un usuario inicia sesión
             await loadActiveCompetition();
         } else if (event === 'SIGNED_OUT') {
             currentUser = null;
