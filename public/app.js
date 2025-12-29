@@ -6063,7 +6063,7 @@ function openAdminTab(tabName) {
     const panelModal = document.getElementById('admin-panel-modal');
     if (!panelModal) return;
     
-    // Copiar el contenido de la sección admin al panel modal
+    // Obtener el contenedor donde están las pestañas originales
     const adminSection = document.getElementById('admin-section');
     const panelContainer = document.getElementById('admin-panel-tabs-container');
     
@@ -6071,19 +6071,25 @@ function openAdminTab(tabName) {
         // Limpiar el contenedor
         panelContainer.innerHTML = '';
         
-        // Copiar todas las pestañas
+        // Copiar todas las pestañas de admin-section
         const tabs = adminSection.querySelectorAll('[id$="-admin-tab"]');
         tabs.forEach(tab => {
             const clonedTab = tab.cloneNode(true);
-            clonedTab.id = 'admin-tab-' + tab.id.replace('-admin-tab', '');
+            // Mantener los IDs originales para que los selectores funcionen
             clonedTab.classList.add('admin-tab-panel');
             clonedTab.style.display = 'none';
             panelContainer.appendChild(clonedTab);
         });
     }
     
-    // Mostrar la pestaña seleccionada
-    const tabPanel = document.getElementById('admin-tab-' + tabName);
+    // Ocultar todas las pestañas primero
+    const allTabs = panelContainer.querySelectorAll('.admin-tab-panel');
+    allTabs.forEach(tab => {
+        tab.style.display = 'none';
+    });
+    
+    // Mostrar la pestaña seleccionada (usando el ID original)
+    const tabPanel = document.getElementById(tabName + '-admin-tab');
     if (tabPanel) {
         tabPanel.style.display = 'block';
     }
@@ -6099,7 +6105,15 @@ function openAdminTab(tabName) {
     };
     const titleEl = document.getElementById('admin-panel-title');
     if (titleEl) {
-        titleEl.innerHTML = `<i class="fas fa-cog"></i> ${titleMap[tabName] || 'Panel de Administración'}`;
+        const iconMap = {
+            'partidos': 'fa-calendar-alt',
+            'resultados': 'fa-futbol',
+            'competiciones': 'fa-trophy',
+            'usuarios': 'fa-users',
+            'puntos': 'fa-edit',
+            'reiniciar': 'fa-redo'
+        };
+        titleEl.innerHTML = `<i class="fas ${iconMap[tabName] || 'fa-cog'}"></i> ${titleMap[tabName] || 'Panel de Administración'}`;
     }
     
     // Mostrar el modal
@@ -6107,22 +6121,24 @@ function openAdminTab(tabName) {
     panelModal.style.display = 'flex';
     
     // Cargar los datos según la pestaña
-    if (tabName === 'partidos') {
-        loadAdminPartidosCompetitionSelector();
-    } else if (tabName === 'resultados') {
-        loadAdminResultadosCompetitionSelector();
-    } else if (tabName === 'competiciones') {
-        loadCompetitionsList();
-    } else if (tabName === 'usuarios') {
-        loadUsersList();
-    } else if (tabName === 'puntos') {
-        loadLigasForEditPoints();
-    } else if (tabName === 'reiniciar') {
-        loadLigasForReset();
-    }
-    
-    // Cargar datos generales
-    loadAdminData();
+    setTimeout(() => {
+        if (tabName === 'partidos') {
+            loadAdminPartidosCompetitionSelector();
+        } else if (tabName === 'resultados') {
+            loadAdminResultadosCompetitionSelector();
+        } else if (tabName === 'competiciones') {
+            loadCompetitionsList();
+        } else if (tabName === 'usuarios') {
+            loadUsersList();
+        } else if (tabName === 'puntos') {
+            loadLigasForEditPoints();
+        } else if (tabName === 'reiniciar') {
+            loadLigasForReset();
+        }
+        
+        // Cargar datos generales
+        loadAdminData();
+    }, 100);
 }
 
 function closeAdminPanel() {
