@@ -5135,6 +5135,18 @@ function formatDate(date) {
 let userAvatarUrl = null;
 
 function showProfileModal() {
+    // Mostrar información de competición activa en el perfil
+    const competitionInfo = currentCompetition ? 
+        `<div style="margin-bottom: 16px; padding: 12px; background: var(--slate-100); border-radius: 8px;">
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: var(--slate-600);">Competición activa:</p>
+            <p style="margin: 0; font-weight: 600; color: var(--slate-900);">${escapeHtml(currentCompetition.name)}</p>
+            <button class="btn btn-small" onclick="event.stopPropagation(); changeCompetition();" style="margin-top: 8px;">
+                <i class="fas fa-exchange-alt"></i> Cambiar Competición
+            </button>
+        </div>` : '';
+    
+    // Guardar referencia temporal para añadir después
+    window._competitionInfoForProfile = competitionInfo;
     closeModals();
     loadProfileData();
     document.getElementById('profile-modal').classList.add('active');
@@ -5193,6 +5205,14 @@ async function loadProfileData() {
             .eq('user_id', currentUser.id);
         
         document.getElementById('profile-ligas').textContent = ligas?.length || 0;
+
+        // Actualizar información de competición
+        const competitionNameEl = document.getElementById('profile-competition-name');
+        if (competitionNameEl && currentCompetition) {
+            competitionNameEl.textContent = currentCompetition.name;
+        } else if (competitionNameEl) {
+            competitionNameEl.textContent = 'No seleccionada';
+        }
 
     } catch (error) {
         console.error('Error cargando perfil:', error);

@@ -1199,6 +1199,24 @@ O formato CSV:
             </button>
           </form>
           
+          <div className="profile-competition-section">
+            <hr style={{margin: '24px 0', border: 'none', borderTop: '1px solid var(--slate-200)'}} />
+            <h3 style={{fontSize: '14px', fontWeight: 600, color: 'var(--slate-700)', marginBottom: '12px'}}>
+              <i className="fas fa-trophy"></i> Competición
+            </h3>
+            <div id="profile-competition-info" style={{padding: '12px', background: 'var(--slate-100)', borderRadius: '8px', marginBottom: '12px'}}>
+              <p style={{margin: '0 0 8px 0', fontSize: '14px', color: 'var(--slate-600)'}}>Competición activa:</p>
+              <p id="profile-competition-name" style={{margin: '0 0 12px 0', fontWeight: 600, color: 'var(--slate-900)'}}>Cargando...</p>
+              <button className="btn btn-secondary btn-small" onClick={() => {
+                if (typeof window !== 'undefined' && (window as any).changeCompetition) {
+                  (window as any).changeCompetition()
+                }
+              }}>
+                <i className="fas fa-exchange-alt"></i> Cambiar Competición
+              </button>
+            </div>
+          </div>
+          
           <div className="profile-join-liga-section">
             <hr style={{margin: '24px 0', border: 'none', borderTop: '1px solid var(--slate-200)'}} />
             <h3 style={{fontSize: '14px', fontWeight: 600, color: 'var(--slate-700)', marginBottom: '12px'}}>
