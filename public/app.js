@@ -2325,9 +2325,9 @@ async function selectCompetition(competitionId, competitionName) {
     }
 
     try {
-        // Guardar competición seleccionada
+        // Guardar competición seleccionada (solo para esta sesión, NO guardar para próxima sesión)
         currentCompetitionId = competitionId;
-        await saveActiveCompetitionToConfig(competitionId);
+        // NO llamar a saveActiveCompetitionToConfig para que el modal aparezca cada vez
         await loadCompetitionData(competitionId);
 
         // Cerrar modal
