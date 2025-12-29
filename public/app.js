@@ -602,34 +602,37 @@ async function handleCreateFirstLiga(event) {
 async function handleLogout() {
     console.log('🚪 Cerrando sesión...');
     
-    // Asegurarse de que supabase esté disponible
-    const clientSupabase = window.supabase || window.supabaseClient;
-    if (!clientSupabase) {
-        console.error('❌ Supabase no disponible para logout');
-        // Forzar mostrar landing page de todas formas
-        showLandingPage();
-        return;
-    }
-    
     try {
-        const { error } = await clientSupabase.auth.signOut();
-        console.log('Resultado signOut:', error ? 'Error' : 'OK');
+        // Usar getSupabase() para obtener el cliente correctamente
+        const supabase = getSupabase();
+        
+        if (supabase) {
+            const { error } = await supabase.auth.signOut();
+            console.log('Resultado signOut:', error ? 'Error' : 'OK');
+            
+            if (error) {
+                console.error('Error en signOut:', error);
+            }
+        } else {
+            console.warn('⚠️ Supabase no disponible para logout, limpiando sesión localmente');
+        }
         
         // Limpiar variables (siempre, aunque haya error)
         currentUser = null;
         isAdmin = false;
         userPredictions = {};
+        currentCompetitionId = null;
+        currentCompetition = null;
         
         // Ocultar link de admin
         const adminBtn = document.getElementById('admin-header-btn');
         if (adminBtn) adminBtn.style.display = 'none';
         
+        // Cerrar todos los modales
+        closeAllModals();
+        
         // Mostrar página de inicio
         showLandingPage();
-        
-        if (error) {
-            console.error('Error en signOut:', error);
-        }
         
         showNotification('Sesión cerrada correctamente', 'success');
         console.log('✅ Logout completado');
@@ -640,6 +643,15 @@ async function handleLogout() {
         currentUser = null;
         isAdmin = false;
         userPredictions = {};
+        currentCompetitionId = null;
+        currentCompetition = null;
+        
+        // Cerrar todos los modales (forzar cierre incluso del selector de competición)
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.classList.remove('active');
+            modal.style.display = 'none';
+        });
+        
         showLandingPage();
         showNotification('Sesión cerrada', 'warning');
     }
@@ -6273,8 +6285,13 @@ function closeAdminPanel() {
 }
 
 function closeAllModals() {
-    // Cerrar todos los modales
+    // Cerrar todos los modales (excepto el de selección de competición si está esperando selección)
     document.querySelectorAll('.modal').forEach(modal => {
+        // No cerrar el modal de selección de competición si hay múltiples competiciones activas
+        // y el usuario aún no ha seleccionado una
+        if (modal.id === 'competition-selector-modal') {
+            return;
+        }
         modal.classList.remove('active');
         modal.style.display = 'none';
     });
