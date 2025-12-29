@@ -2074,25 +2074,86 @@ function setupNavigation() {
 // ========================================
 async function loadActiveJornada() {
     try {
-        const { data, error } = await supabase
-            .from('config')
-            .select('value')
-            .eq('key', 'active_jornada')
-            .single();
-
-        if (data && data.value) {
-            activeJornada = parseInt(data.value) || 1;
-            currentJornada = activeJornada;
-        } else {
-            // Valor por defecto si no existe en config
+        const supabase = getSupabase();
+        if (!supabase) {
             activeJornada = 1;
             currentJornada = 1;
-            console.warn('⚠️ No se encontró jornada activa en config, usando 1');
+            updateJornadaDisplay();
+            return;
         }
+
+        // Calcular automáticamente la jornada activa basándose en la fecha actual
+        // La jornada activa es la primera jornada futura o la jornada actual si hay partidos hoy
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); // Resetear a medianoche para comparar solo fechas
+
+        // Obtener todas las jornadas con partidos de la competición activa
+        let matchesQuery = supabase
+            .from('matches')
+            .select('jornada, match_date')
+            .order('jornada', { ascending: true })
+            .order('match_date', { ascending: true });
+
+        // Filtrar por competición activa si existe
+        try {
+            if (currentCompetitionId) {
+                matchesQuery = matchesQuery.eq('competition_id', currentCompetitionId);
+            }
+        } catch (e) {
+            console.warn('⚠️ Columna competition_id no existe en matches');
+        }
+
+        const { data: matches, error } = await executeQueryWithTimeout(() => matchesQuery, 5000).catch(() => ({ data: [], error: null }));
+
+        if (error) {
+            console.warn('⚠️ Error obteniendo partidos para calcular jornada activa:', error);
+            activeJornada = 1;
+            currentJornada = 1;
+            updateJornadaDisplay();
+            return;
+        }
+
+        if (!matches || matches.length === 0) {
+            // Si no hay partidos, usar jornada 1 por defecto
+            activeJornada = 1;
+            currentJornada = 1;
+            updateJornadaDisplay();
+            return;
+        }
+
+        // Encontrar la jornada más próxima a la fecha actual
+        let nextJornada = 1;
+        for (const match of matches) {
+            const matchDate = new Date(match.match_date);
+            matchDate.setHours(0, 0, 0, 0);
+            
+            // Si el partido es hoy o futuro, esa es la jornada activa
+            if (matchDate >= now) {
+                nextJornada = match.jornada;
+                break;
+            }
+        }
+
+        // Si no encontramos una jornada futura, usar la última jornada
+        if (nextJornada === 1 && matches.length > 0) {
+            const lastMatch = matches[matches.length - 1];
+            const lastMatchDate = new Date(lastMatch.match_date);
+            lastMatchDate.setHours(0, 0, 0, 0);
+            
+            if (lastMatchDate < now) {
+                // Todas las jornadas son pasadas, usar la última
+                const jornadas = [...new Set(matches.map(m => m.jornada))];
+                nextJornada = Math.max(...jornadas);
+            }
+        }
+
+        activeJornada = nextJornada;
+        currentJornada = nextJornada;
+        console.log(`✅ Jornada activa calculada: ${nextJornada}`);
         
         updateJornadaDisplay();
     } catch (error) {
-        console.warn('⚠️ Error cargando jornada activa, usando valor por defecto:', error);
+        console.warn('⚠️ Error calculando jornada activa, usando valor por defecto:', error);
         // Valores por defecto si falla
         activeJornada = 1;
         currentJornada = 1;
@@ -4073,8 +4134,10 @@ function setupAdminTabs() {
             document.getElementById(`${tab}-admin-tab`).classList.add('active');
             
             // Cargar datos según tab
-            if (tab === 'resultados') {
-                loadMatchesForResults();
+            if (tab === 'partidos') {
+                loadAdminPartidosCompetitionSelector();
+            } else if (tab === 'resultados') {
+                loadAdminResultadosCompetitionSelector();
             } else if (tab === 'competiciones') {
                 loadCompetitionsList();
             } else if (tab === 'usuarios') {
@@ -4109,14 +4172,83 @@ function loadTeamsInSelectors() {
     }
 }
 
-function loadJornadasSelectors() {
+async function loadJornadasSelectors(type = 'all') {
     const adminSelect = document.getElementById('admin-jornada-select');
     const resultsSelect = document.getElementById('results-jornada-select');
     
-    for (let i = 1; i <= CONFIG_TEMPORADA.TOTAL_JORNADAS; i++) {
-        const option = `<option value="${i}">Jornada ${i}</option>`;
-        if (adminSelect) adminSelect.innerHTML += option;
-        if (resultsSelect) resultsSelect.innerHTML += option;
+    const supabase = getSupabase();
+    if (!supabase) {
+        if (type === 'admin' || type === 'all') {
+            if (adminSelect) adminSelect.innerHTML = '<option value="">Error de conexión</option>';
+        }
+        if (type === 'results' || type === 'all') {
+            if (resultsSelect) resultsSelect.innerHTML = '<option value="">Error de conexión</option>';
+        }
+        return;
+    }
+
+    try {
+        // Obtener la competición seleccionada según el tipo
+        let competitionId = null;
+        if (type === 'admin') {
+            const compSelect = document.getElementById('admin-partidos-competition-select');
+            competitionId = compSelect ? parseInt(compSelect.value) : currentCompetitionId;
+        } else if (type === 'results') {
+            const compSelect = document.getElementById('admin-resultados-competition-select');
+            competitionId = compSelect ? parseInt(compSelect.value) : currentCompetitionId;
+        } else {
+            competitionId = currentCompetitionId;
+        }
+
+        if (!competitionId) {
+            if (type === 'admin' || type === 'all') {
+                if (adminSelect) adminSelect.innerHTML = '<option value="">Selecciona una competición primero</option>';
+            }
+            if (type === 'results' || type === 'all') {
+                if (resultsSelect) resultsSelect.innerHTML = '<option value="">Selecciona una competición primero</option>';
+            }
+            return;
+        }
+
+        // Obtener jornadas únicas de los partidos de esta competición
+        let matchesQuery = supabase
+            .from('matches')
+            .select('jornada')
+            .eq('competition_id', competitionId);
+
+        const { data: matches, error } = await executeQueryWithTimeout(() => matchesQuery, 5000).catch(() => ({ data: [], error: null }));
+
+        if (error) throw error;
+
+        // Obtener jornadas únicas y ordenarlas
+        const jornadas = matches && matches.length > 0
+            ? [...new Set(matches.map(m => m.jornada))].sort((a, b) => a - b)
+            : [];
+
+        // Generar opciones de jornadas
+        let optionsHtml = '<option value="">Todas las jornadas</option>';
+        if (jornadas.length > 0) {
+            jornadas.forEach(j => {
+                optionsHtml += `<option value="${j}">Jornada ${j}</option>`;
+            });
+        } else {
+            optionsHtml += '<option value="">No hay jornadas disponibles</option>';
+        }
+
+        if (type === 'admin' || type === 'all') {
+            if (adminSelect) adminSelect.innerHTML = optionsHtml;
+        }
+        if (type === 'results' || type === 'all') {
+            if (resultsSelect) resultsSelect.innerHTML = optionsHtml;
+        }
+    } catch (error) {
+        console.error('Error cargando jornadas:', error);
+        if (type === 'admin' || type === 'all') {
+            if (adminSelect) adminSelect.innerHTML = '<option value="">Error al cargar</option>';
+        }
+        if (type === 'results' || type === 'all') {
+            if (resultsSelect) resultsSelect.innerHTML = '<option value="">Error al cargar</option>';
+        }
     }
 }
 
@@ -4131,13 +4263,159 @@ async function loadAdminData() {
     // Cargar equipos en selectores
     loadTeamsInSelectors();
     
-    // Cargar jornadas en selectores
-    loadJornadasSelectors();
-    
-    // Cargar partidos
-    loadAdminMatches();
+    // Cargar selectores de competición
+    loadAdminPartidosCompetitionSelector();
+    loadAdminResultadosCompetitionSelector();
     
     console.log('✅ Panel admin cargado');
+}
+
+// Cargar selector de competición para "Gestionar Partidos"
+async function loadAdminPartidosCompetitionSelector() {
+    const select = document.getElementById('admin-partidos-competition-select');
+    if (!select) return;
+
+    const supabase = getSupabase();
+    if (!supabase) {
+        select.innerHTML = '<option value="">Error de conexión</option>';
+        return;
+    }
+
+    try {
+        const { data: competitions, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('competitions')
+                .select('id, name, is_active')
+                .eq('is_active', true)
+                .order('name', { ascending: true })
+        , 5000).catch(() => ({ data: [], error: null }));
+
+        if (error) throw error;
+
+        select.innerHTML = '<option value="">Seleccionar competición...</option>';
+        
+        if (competitions && competitions.length > 0) {
+            competitions.forEach(comp => {
+                const option = document.createElement('option');
+                option.value = comp.id;
+                option.textContent = comp.name;
+                if (comp.id === currentCompetitionId) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+            
+            // Si hay una competición seleccionada, cargar jornadas y partidos
+            if (currentCompetitionId) {
+                await loadJornadasSelectors('admin');
+                loadAdminMatches();
+            }
+        } else {
+            select.innerHTML = '<option value="">No hay competiciones activas</option>';
+        }
+    } catch (error) {
+        console.error('Error cargando competiciones:', error);
+        select.innerHTML = '<option value="">Error al cargar</option>';
+    }
+}
+
+// Cambio de competición en "Gestionar Partidos"
+async function onAdminPartidosCompetitionChange() {
+    const select = document.getElementById('admin-partidos-competition-select');
+    if (!select) return;
+
+    const competitionId = parseInt(select.value);
+    if (!competitionId) {
+        document.getElementById('admin-jornada-select').innerHTML = '<option value="">Selecciona una competición primero</option>';
+        document.getElementById('admin-matches-list').innerHTML = '';
+        return;
+    }
+
+    // Actualizar competición actual temporalmente para cargar datos
+    const previousCompetitionId = currentCompetitionId;
+    currentCompetitionId = competitionId;
+
+    try {
+        await loadJornadasSelectors('admin');
+        loadAdminMatches();
+    } catch (error) {
+        console.error('Error al cambiar competición:', error);
+        currentCompetitionId = previousCompetitionId;
+    }
+}
+
+// Cargar selector de competición para "Introducir Resultados"
+async function loadAdminResultadosCompetitionSelector() {
+    const select = document.getElementById('admin-resultados-competition-select');
+    if (!select) return;
+
+    const supabase = getSupabase();
+    if (!supabase) {
+        select.innerHTML = '<option value="">Error de conexión</option>';
+        return;
+    }
+
+    try {
+        const { data: competitions, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('competitions')
+                .select('id, name, is_active')
+                .eq('is_active', true)
+                .order('name', { ascending: true })
+        , 5000).catch(() => ({ data: [], error: null }));
+
+        if (error) throw error;
+
+        select.innerHTML = '<option value="">Seleccionar competición...</option>';
+        
+        if (competitions && competitions.length > 0) {
+            competitions.forEach(comp => {
+                const option = document.createElement('option');
+                option.value = comp.id;
+                option.textContent = comp.name;
+                if (comp.id === currentCompetitionId) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+            
+            // Si hay una competición seleccionada, cargar jornadas y partidos
+            if (currentCompetitionId) {
+                await loadJornadasSelectors('results');
+                loadMatchesForResults();
+            }
+        } else {
+            select.innerHTML = '<option value="">No hay competiciones activas</option>';
+        }
+    } catch (error) {
+        console.error('Error cargando competiciones:', error);
+        select.innerHTML = '<option value="">Error al cargar</option>';
+    }
+}
+
+// Cambio de competición en "Introducir Resultados"
+async function onAdminResultadosCompetitionChange() {
+    const select = document.getElementById('admin-resultados-competition-select');
+    if (!select) return;
+
+    const competitionId = parseInt(select.value);
+    if (!competitionId) {
+        document.getElementById('results-jornada-select').innerHTML = '<option value="">Selecciona una competición primero</option>';
+        document.getElementById('results-matches-list').innerHTML = '';
+        return;
+    }
+
+    // Actualizar competición actual temporalmente para cargar datos
+    const previousCompetitionId = currentCompetitionId;
+    currentCompetitionId = competitionId;
+
+    try {
+        await loadJornadasSelectors('results');
+        loadMatchesForResults();
+    } catch (error) {
+        console.error('Error al cambiar competición:', error);
+        currentCompetitionId = previousCompetitionId;
+    }
 }
 
 async function addMatch(event) {
@@ -4212,9 +4490,15 @@ async function addMatch(event) {
             away_score: null
         };
         
-        // Añadir competition_id si existe la columna
+        // Añadir competition_id desde el selector de competición en "Gestionar Partidos"
         try {
-            matchData.competition_id = currentCompetitionId;
+            const compSelect = document.getElementById('admin-partidos-competition-select');
+            const selectedCompetitionId = compSelect ? parseInt(compSelect.value) : currentCompetitionId;
+            if (selectedCompetitionId) {
+                matchData.competition_id = selectedCompetitionId;
+            } else {
+                matchData.competition_id = currentCompetitionId;
+            }
         } catch (e) {
             console.warn('⚠️ Columna competition_id no existe en matches');
         }
@@ -4425,8 +4709,12 @@ async function importFromExcel() {
             away_score: null
         };
         
-        // Añadir competition_id si existe la columna
-        if (currentCompetitionId) {
+        // Añadir competition_id desde el selector de competición en "Gestionar Partidos"
+        const compSelect = document.getElementById('admin-partidos-competition-select');
+        const selectedCompetitionId = compSelect ? parseInt(compSelect.value) : currentCompetitionId;
+        if (selectedCompetitionId) {
+            matchObj.competition_id = selectedCompetitionId;
+        } else if (currentCompetitionId) {
             matchObj.competition_id = currentCompetitionId;
         }
         
@@ -4513,7 +4801,11 @@ async function importFromExcel() {
                 throw new Error(`Fecha inválida en partido: ${m.home_team} vs ${m.away_team}`);
             }
             
-            return {
+            // Obtener competition_id del objeto match o del selector
+            const compSelect = document.getElementById('admin-partidos-competition-select');
+            const selectedCompetitionId = compSelect ? parseInt(compSelect.value) : (m.competition_id || currentCompetitionId);
+            
+            const matchToInsert = {
                 jornada: parseInt(m.jornada),
                 match_date: matchDate.toISOString(), // Asegurar formato ISO
                 home_team: String(m.home_team).trim(),
@@ -4521,6 +4813,13 @@ async function importFromExcel() {
                 home_score: null,
                 away_score: null
             };
+            
+            // Añadir competition_id si existe
+            if (selectedCompetitionId) {
+                matchToInsert.competition_id = selectedCompetitionId;
+            }
+            
+            return matchToInsert;
         });
 
         console.log('📋 Primer partido formateado:', matchesToInsert[0]);
@@ -4852,30 +5151,55 @@ function showImportPreview(matches, errors) {
 }
 
 async function loadAdminMatches() {
-    const jornada = document.getElementById('admin-jornada-select')?.value || 1;
+    const jornadaSelect = document.getElementById('admin-jornada-select');
+    const compSelect = document.getElementById('admin-partidos-competition-select');
     const container = document.getElementById('admin-matches-list');
     
     if (!container) return;
 
+    const supabase = getSupabase();
+    if (!supabase) {
+        container.innerHTML = '<p style="text-align: center; color: var(--red-500);">Error de conexión</p>';
+        return;
+    }
+
+    const jornada = jornadaSelect?.value;
+    const competitionId = compSelect ? parseInt(compSelect.value) : currentCompetitionId;
+
+    if (!competitionId) {
+        container.innerHTML = '<p style="text-align: center; color: var(--slate-500);">Selecciona una competición primero</p>';
+        return;
+    }
+
     try {
-        const { data, error } = await supabase
+        let matchesQuery = supabase
             .from('matches')
             .select('*')
-            .eq('jornada', jornada)
-            .order('match_date', { ascending: true });
+            .eq('competition_id', competitionId);
+
+        if (jornada && jornada !== '') {
+            matchesQuery = matchesQuery.eq('jornada', parseInt(jornada));
+        }
+
+        const { data, error } = await executeQueryWithTimeout(() =>
+            matchesQuery.order('match_date', { ascending: true })
+        , 8000).catch(() => ({ data: [], error: null }));
 
         if (error) throw error;
 
         if (!data || data.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No hay partidos en esta jornada.</p>';
+            const message = jornada 
+                ? 'No hay partidos en esta jornada.' 
+                : 'No hay partidos en esta competición.';
+            container.innerHTML = `<p style="text-align: center; color: var(--slate-500);">${message}</p>`;
             return;
         }
 
         container.innerHTML = data.map(match => `
             <div class="admin-match-item">
                 <div>
-                    <div class="admin-match-teams">${match.home_team} vs ${match.away_team}</div>
-                    <div class="admin-match-date">${formatDate(new Date(match.match_date))}</div>
+                    <div class="admin-match-teams">${escapeHtml(match.home_team)} vs ${escapeHtml(match.away_team)}</div>
+                    <div class="admin-match-date">${formatDate(new Date(match.match_date))} - Jornada ${match.jornada}</div>
                 </div>
                 <div class="admin-match-actions">
                     <button class="btn btn-small btn-danger" onclick="deleteMatch(${match.id})">
@@ -4886,6 +5210,7 @@ async function loadAdminMatches() {
         `).join('');
     } catch (error) {
         console.error('Error cargando partidos:', error);
+        container.innerHTML = '<p style="text-align: center; color: var(--red-500);">Error al cargar partidos</p>';
     }
 }
 
@@ -4916,7 +5241,8 @@ async function deleteMatch(matchId) {
 }
 
 async function loadMatchesForResults() {
-    const jornada = document.getElementById('results-jornada-select')?.value || 1;
+    const jornadaSelect = document.getElementById('results-jornada-select');
+    const compSelect = document.getElementById('admin-resultados-competition-select');
     const container = document.getElementById('results-matches-list');
     
     if (!container) return;
@@ -4927,18 +5253,24 @@ async function loadMatchesForResults() {
         return;
     }
 
+    const jornada = jornadaSelect?.value;
+    const competitionId = compSelect ? parseInt(compSelect.value) : currentCompetitionId;
+
+    if (!competitionId) {
+        container.innerHTML = '<p style="text-align: center; color: var(--slate-500);">Selecciona una competición primero</p>';
+        return;
+    }
+
     try {
-        // Filtrar por competición activa
+        // Filtrar por competición seleccionada
         let matchesQuery = supabase
             .from('matches')
             .select('*')
-            .eq('jornada', jornada);
+            .eq('competition_id', competitionId);
         
-        // Filtrar por competition_id si existe
-        try {
-            matchesQuery = matchesQuery.eq('competition_id', currentCompetitionId);
-        } catch (e) {
-            console.warn('⚠️ Columna competition_id no existe en matches');
+        // Filtrar por jornada si se seleccionó una
+        if (jornada && jornada !== '') {
+            matchesQuery = matchesQuery.eq('jornada', parseInt(jornada));
         }
         
         const { data, error } = await executeQueryWithTimeout(() =>
@@ -4948,7 +5280,10 @@ async function loadMatchesForResults() {
         if (error) throw error;
 
         if (!data || data.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: var(--slate-500);">No hay partidos en esta jornada.</p>';
+            const message = jornada 
+                ? 'No hay partidos en esta jornada.' 
+                : 'No hay partidos en esta competición.';
+            container.innerHTML = `<p style="text-align: center; color: var(--slate-500);">${message}</p>`;
             return;
         }
 

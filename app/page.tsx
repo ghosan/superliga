@@ -753,13 +753,28 @@ export default function Home() {
               <button className="admin-tab-btn" data-admin-tab="resultados">Introducir Resultados</button>
               <button className="admin-tab-btn" data-admin-tab="competiciones">Competiciones</button>
               <button className="admin-tab-btn" data-admin-tab="usuarios">Usuarios</button>
-              <button className="admin-tab-btn" data-admin-tab="jornadas">Jornadas</button>
               <button className="admin-tab-btn" data-admin-tab="puntos">Editar Puntos</button>
               <button className="admin-tab-btn" data-admin-tab="reiniciar">Reiniciar Liga</button>
             </div>
 
             {/* Gestionar Partidos */}
             <div id="partidos-admin-tab" className="admin-tab-content active">
+              {/* Selector de Competición */}
+              <div className="admin-card">
+                <h3><i className="fas fa-trophy"></i> Seleccionar Competición</h3>
+                <div className="form-group">
+                  <label htmlFor="admin-partidos-competition-select">Competición</label>
+                  <select id="admin-partidos-competition-select" onChange={() => {
+                    if (typeof window !== 'undefined' && (window as any).onAdminPartidosCompetitionChange) {
+                      (window as any).onAdminPartidosCompetitionChange()
+                    }
+                  }}>
+                    <option value="">Cargando competiciones...</option>
+                  </select>
+                  <small className="field-hint">Selecciona la competición para la que quieres gestionar partidos</small>
+                </div>
+              </div>
+              
               {/* IMPORTAR DESDE EXCEL */}
               <div className="admin-card">
                 <h3><i className="fas fa-file-excel"></i> Importar Partidos</h3>
@@ -870,7 +885,8 @@ O formato CSV:
               
               <div className="admin-card">
                 <h3><i className="fas fa-list"></i> Partidos por Jornada</h3>
-                <div className="admin-jornada-selector">
+                <div className="form-group" style={{marginBottom: '16px'}}>
+                  <label htmlFor="admin-jornada-select">Jornada</label>
                   <select id="admin-jornada-select" onChange={() => {
                     if (typeof window !== 'undefined' && (window as any).loadAdminMatches) {
                       (window as any).loadAdminMatches()
@@ -887,9 +903,26 @@ O formato CSV:
 
             {/* Introducir Resultados */}
             <div id="resultados-admin-tab" className="admin-tab-content">
+              {/* Selector de Competición */}
+              <div className="admin-card">
+                <h3><i className="fas fa-trophy"></i> Seleccionar Competición</h3>
+                <div className="form-group">
+                  <label htmlFor="admin-resultados-competition-select">Competición</label>
+                  <select id="admin-resultados-competition-select" onChange={() => {
+                    if (typeof window !== 'undefined' && (window as any).onAdminResultadosCompetitionChange) {
+                      (window as any).onAdminResultadosCompetitionChange()
+                    }
+                  }}>
+                    <option value="">Cargando competiciones...</option>
+                  </select>
+                  <small className="field-hint">Selecciona la competición para la que quieres introducir resultados</small>
+                </div>
+              </div>
+              
               <div className="admin-card">
                 <h3><i className="fas fa-futbol"></i> Introducir Resultados</h3>
-                <div className="admin-jornada-selector">
+                <div className="form-group" style={{marginBottom: '16px'}}>
+                  <label htmlFor="results-jornada-select">Jornada</label>
                   <select id="results-jornada-select" onChange={() => {
                     if (typeof window !== 'undefined' && (window as any).loadMatchesForResults) {
                       (window as any).loadMatchesForResults()
@@ -936,26 +969,6 @@ O formato CSV:
               </div>
             </div>
 
-            {/* Jornadas */}
-            <div id="jornadas-admin-tab" className="admin-tab-content">
-              <div className="admin-card">
-                <h3><i className="fas fa-calendar"></i> Gestionar Jornadas</h3>
-                <form id="set-active-jornada-form" onSubmit={(e) => {
-                  e.preventDefault()
-                  if (typeof window !== 'undefined' && (window as any).setActiveJornada) {
-                    (window as any).setActiveJornada(e)
-                  }
-                }}>
-                  <div className="form-group">
-                    <label>Jornada Activa</label>
-                    <input type="number" id="active-jornada" min={1} max={38} required />
-                  </div>
-                  <button type="submit" className="btn btn-primary">
-                    <i className="fas fa-check"></i> Establecer como Activa
-                  </button>
-                </form>
-              </div>
-            </div>
 
             {/* Editar Puntos de Usuario */}
             <div id="puntos-admin-tab" className="admin-tab-content">
