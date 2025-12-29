@@ -749,6 +749,7 @@ export default function Home() {
             <div className="admin-tabs">
               <button className="admin-tab-btn active" data-admin-tab="partidos">Gestionar Partidos</button>
               <button className="admin-tab-btn" data-admin-tab="resultados">Introducir Resultados</button>
+              <button className="admin-tab-btn" data-admin-tab="competiciones">Competiciones</button>
               <button className="admin-tab-btn" data-admin-tab="usuarios">Usuarios</button>
               <button className="admin-tab-btn" data-admin-tab="jornadas">Jornadas</button>
               <button className="admin-tab-btn" data-admin-tab="puntos">Editar Puntos</button>
@@ -897,6 +898,28 @@ O formato CSV:
                 </div>
                 <div id="results-matches-list" className="results-matches-list">
                   {/* Lista de partidos para introducir resultados */}
+                </div>
+              </div>
+            </div>
+
+            {/* Competiciones */}
+            <div id="competiciones-admin-tab" className="admin-tab-content">
+              <div className="admin-card">
+                <h3><i className="fas fa-trophy"></i> Gestionar Competiciones</h3>
+                <p className="help-text">Crea y gestiona competiciones (La Liga, Mundial, Eurocopa, etc.). Cada competición tiene sus propios partidos, ligas y datos completamente aislados.</p>
+                
+                <div className="form-group" style={{marginTop: '20px'}}>
+                  <button className="btn btn-primary" onClick={() => {
+                    if (typeof window !== 'undefined' && (window as any).showCreateCompetitionModal) {
+                      (window as any).showCreateCompetitionModal()
+                    }
+                  }}>
+                    <i className="fas fa-plus"></i> Crear Nueva Competición
+                  </button>
+                </div>
+                
+                <div id="competitions-list" className="competitions-list" style={{marginTop: '24px'}}>
+                  {/* Lista de competiciones */}
                 </div>
               </div>
             </div>

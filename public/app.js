@@ -505,15 +505,25 @@ async function handleCreateFirstLiga(event) {
             throw profileError;
         }
 
-        // 3. Crear la liga
+        // 3. Crear la liga (asociada a la competición activa)
+        const ligaData = {
+            name: ligaName,
+            description: ligaDescription,
+            code: ligaCode,
+            created_by: authData.user.id
+        };
+        
+        // Añadir competition_id si existe la columna
+        try {
+            ligaData.competition_id = currentCompetitionId;
+        } catch (e) {
+            // Si no existe la columna, continuar sin ella (compatibilidad)
+            console.warn('⚠️ Columna competition_id no existe en ligas');
+        }
+        
         const { data: newLiga, error: ligaError } = await supabase
             .from('ligas')
-            .insert({
-                name: ligaName,
-                description: ligaDescription,
-                code: ligaCode,
-                created_by: authData.user.id
-            })
+            .insert(ligaData)
             .select()
             .single();
 
@@ -1068,12 +1078,21 @@ async function loadDashboardJornada() {
         const activeJornada = configData?.value || 1;
 
         // Obtener TODOS los partidos de la jornada activa (incluyendo resultados)
+        // Filtrar por competición activa
+        let matchesQuery = supabase
+            .from('matches')
+            .select('id, home_team, away_team, match_date, jornada, home_score, away_score')
+            .eq('jornada', activeJornada);
+        
+        // Filtrar por competition_id si existe
+        try {
+            matchesQuery = matchesQuery.eq('competition_id', currentCompetitionId);
+        } catch (e) {
+            console.warn('⚠️ Columna competition_id no existe en matches');
+        }
+        
         const { data: matches, error: matchesError } = await executeQueryWithTimeout(() =>
-            supabase
-                .from('matches')
-                .select('id, home_team, away_team, match_date, jornada, home_score, away_score')
-                .eq('jornada', activeJornada)
-                .order('match_date', { ascending: true })
+            matchesQuery.order('match_date', { ascending: true })
         , 8000).catch(() => ({ data: [], error: null }));
 
         // Contar total de partidos
@@ -1152,20 +1171,28 @@ async function loadDashboardClassificationLigaSelector() {
         const select = document.getElementById('dashboard-classification-liga-select');
         if (!select) return;
 
+        // Filtrar ligas por competición activa en memoria
+        let filteredLigas = userLigas || [];
+        if (userLigas && userLigas.length > 0 && userLigas[0].ligas?.competition_id !== undefined) {
+            filteredLigas = userLigas.filter(item => 
+                item.ligas && parseInt(item.ligas.competition_id) === currentCompetitionId
+            );
+        }
+
         // Limpiar opciones
         select.innerHTML = '<option value="">Selecciona una liga</option>';
 
-        if (userLigas && userLigas.length > 0) {
-            userLigas.forEach(item => {
+        if (filteredLigas && filteredLigas.length > 0) {
+            filteredLigas.forEach(item => {
                 if (item.ligas) {
                     select.innerHTML += `<option value="${item.ligas.id}">${item.ligas.name}</option>`;
                 }
             });
 
             // Si solo hay una liga, seleccionarla automáticamente
-            if (userLigas.length === 1 && userLigas[0].ligas) {
-                select.value = userLigas[0].ligas.id;
-                loadDashboardClassification(userLigas[0].ligas.id);
+            if (filteredLigas.length === 1 && filteredLigas[0].ligas) {
+                select.value = filteredLigas[0].ligas.id;
+                loadDashboardClassification(filteredLigas[0].ligas.id);
             }
         } else {
             select.innerHTML = '<option value="">No perteneces a ninguna liga</option>';
@@ -2320,10 +2347,13 @@ async function loadPronosticosLigaSelector() {
             return;
         }
 
-        const { data: userLigas, error } = await supabase
-            .from('liga_members')
-            .select('liga_id, ligas(id, name)')
-            .eq('user_id', currentUser.id);
+        // Filtrar ligas por competición activa
+        const { data: userLigas, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('liga_members')
+                .select('liga_id, ligas(id, name, competition_id)')
+                .eq('user_id', currentUser.id)
+        , 8000).catch(() => ({ data: [], error: null }));
 
         if (error) {
             console.error('Error cargando ligas:', error);
@@ -2340,10 +2370,18 @@ async function loadPronosticosLigaSelector() {
             return;
         }
 
+        // Filtrar ligas por competición activa en memoria
+        let filteredLigas = userLigas || [];
+        if (userLigas && userLigas.length > 0 && userLigas[0].ligas?.competition_id !== undefined) {
+            filteredLigas = userLigas.filter(item => 
+                item.ligas && parseInt(item.ligas.competition_id) === currentCompetitionId
+            );
+        }
+
         selector.innerHTML = '<option value="">Selecciona una liga</option>';
 
-        if (userLigas && userLigas.length > 0) {
-            userLigas.forEach(item => {
+        if (filteredLigas && filteredLigas.length > 0) {
+            filteredLigas.forEach(item => {
                 if (item.ligas) {
                     const option = document.createElement('option');
                     option.value = item.ligas.id;
@@ -2469,12 +2507,22 @@ async function loadMatches() {
 
     try {
         // Ejecutar consulta con timeout usando la función auxiliar
+        // Filtrar por competición activa y jornada
+        let query = supabase
+            .from('matches')
+            .select('*')
+            .eq('jornada', currentJornada);
+        
+        // Filtrar por competition_id si existe la columna (con manejo de errores)
+        try {
+            query = query.eq('competition_id', currentCompetitionId);
+        } catch (e) {
+            // Si la columna no existe aún, continuar sin filtrar (compatibilidad)
+            console.warn('⚠️ Columna competition_id no existe en matches, cargando todos los partidos');
+        }
+        
         const result = await executeQueryWithTimeout(() => 
-            supabase
-                .from('matches')
-                .select('*')
-                .eq('jornada', currentJornada)
-                .order('match_date', { ascending: true })
+            query.order('match_date', { ascending: true })
         , 10000);
         
         const matches = result.data;
@@ -3306,12 +3354,23 @@ async function loadLigasForSelect() {
     }
 
     try {
-        const { data: userLigas, error } = await supabase
-            .from('liga_members')
-            .select('liga_id, ligas(id, name)')
-            .eq('user_id', currentUser.id);
+        // Filtrar ligas por competición activa
+        const { data: userLigas, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('liga_members')
+                .select('liga_id, ligas(id, name, competition_id)')
+                .eq('user_id', currentUser.id)
+        , 8000).catch(() => ({ data: [], error: null }));
 
         if (error) throw error;
+
+        // Filtrar ligas por competición activa en memoria
+        let filteredLigas = userLigas || [];
+        if (userLigas && userLigas.length > 0 && userLigas[0].ligas?.competition_id !== undefined) {
+            filteredLigas = userLigas.filter(item => 
+                item.ligas && parseInt(item.ligas.competition_id) === currentCompetitionId
+            );
+        }
 
         const select = document.getElementById('liga-select');
         const selectorContainer = document.querySelector('.liga-selector');
@@ -3319,9 +3378,9 @@ async function loadLigasForSelect() {
         if (!select || !selectorContainer) return;
 
         // Si solo hay una liga, ocultar el selector y cargar automáticamente
-        if (userLigas && userLigas.length === 1 && userLigas[0].ligas) {
+        if (filteredLigas && filteredLigas.length === 1 && filteredLigas[0].ligas) {
             selectorContainer.style.display = 'none';
-            select.value = userLigas[0].ligas.id;
+            select.value = filteredLigas[0].ligas.id;
             loadLigaClassification();
             return;
         }
@@ -3330,8 +3389,8 @@ async function loadLigasForSelect() {
         selectorContainer.style.display = 'block';
         select.innerHTML = '<option value="">Selecciona una liga</option>';
         
-        if (userLigas && userLigas.length > 0) {
-            userLigas.forEach(item => {
+        if (filteredLigas && filteredLigas.length > 0) {
+            filteredLigas.forEach(item => {
                 if (item.ligas) {
                     select.innerHTML += `<option value="${item.ligas.id}">${item.ligas.name}</option>`;
                 }
@@ -3663,38 +3722,50 @@ async function loadUserLigas() {
     container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
 
     try {
-        const { data, error } = await supabase
-            .from('liga_members')
-            .select(`
-                liga_id,
-                ligas (
-                    id,
-                    name,
-                    description,
-                    code,
-                    created_by
-                )
-            `)
-            .eq('user_id', currentUser.id);
+        // Filtrar ligas por competición activa
+        const { data, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('liga_members')
+                .select(`
+                    liga_id,
+                    ligas (
+                        id,
+                        name,
+                        description,
+                        code,
+                        created_by,
+                        competition_id
+                    )
+                `)
+                .eq('user_id', currentUser.id)
+        , 8000).catch(() => ({ data: [], error: null }));
+        
+        // Filtrar ligas por competición activa en memoria
+        let filteredData = data || [];
+        if (data && data.length > 0 && data[0].ligas?.competition_id !== undefined) {
+            filteredData = data.filter(item => 
+                item.ligas && parseInt(item.ligas.competition_id) === currentCompetitionId
+            );
+        }
 
         if (error) {
             console.error('❌ Error obteniendo ligas:', error);
             throw error;
         }
 
-        if (!data || data.length === 0) {
+        if (!filteredData || filteredData.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-users"></i>
                     <h3>No estás en ninguna liga</h3>
-                    <p>Crea una liga o únete a una existente.</p>
+                    <p>Crea una liga o únete a una existente para la competición "${currentCompetition?.name || 'La Liga'}".</p>
                 </div>
             `;
             return;
         }
 
         // Obtener conteo de miembros para cada liga
-        const ligaIds = data.map(item => item.ligas?.id).filter(Boolean);
+        const ligaIds = filteredData.map(item => item.ligas?.id).filter(Boolean);
         const { data: memberCounts } = await supabase
             .from('liga_members')
             .select('liga_id')
@@ -3705,7 +3776,7 @@ async function loadUserLigas() {
             counts[m.liga_id] = (counts[m.liga_id] || 0) + 1;
         });
 
-        container.innerHTML = data.map(item => {
+        container.innerHTML = filteredData.map(item => {
             if (!item.ligas) return '';
             const liga = item.ligas;
             const memberCount = counts[liga.id] || 1;
@@ -3856,6 +3927,8 @@ function setupAdminTabs() {
             // Cargar datos según tab
             if (tab === 'resultados') {
                 loadMatchesForResults();
+            } else if (tab === 'competiciones') {
+                loadCompetitionsList();
             } else if (tab === 'usuarios') {
                 loadUsersList();
             } else if (tab === 'puntos') {
@@ -3981,17 +4054,27 @@ async function addMatch(event) {
     try {
         console.log('Insertando partido en Supabase...');
         
+        // Preparar datos del partido
+        const matchData = {
+            jornada: parseInt(jornada),
+            match_date: matchDateISO,
+            home_team: homeTeam,
+            away_team: awayTeam,
+            home_score: null,
+            away_score: null
+        };
+        
+        // Añadir competition_id si existe la columna
+        try {
+            matchData.competition_id = currentCompetitionId;
+        } catch (e) {
+            console.warn('⚠️ Columna competition_id no existe en matches');
+        }
+        
         const { data, error } = await executeQueryWithTimeout(() =>
             supabase
                 .from('matches')
-                .insert({
-                    jornada: parseInt(jornada),
-                    match_date: matchDateISO,
-                    home_team: homeTeam,
-                    away_team: awayTeam,
-                    home_score: null,
-                    away_score: null
-                })
+                .insert(matchData)
                 .select()
         , 10000);
 
@@ -4184,14 +4267,22 @@ async function importFromExcel() {
             continue;
         }
 
-        matches.push({
+        // Crear objeto del partido con competition_id
+        const matchObj = {
             jornada,
             match_date: matchDate.toISOString(),
             home_team: homeTeam.trim(),
             away_team: awayTeam.trim(),
             home_score: null,
             away_score: null
-        });
+        };
+        
+        // Añadir competition_id si existe la columna
+        if (currentCompetitionId) {
+            matchObj.competition_id = currentCompetitionId;
+        }
+        
+        matches.push(matchObj);
         
         console.log(`✅ Línea ${i + 1} procesada:`, {
             jornada,
@@ -4682,12 +4773,29 @@ async function loadMatchesForResults() {
     
     if (!container) return;
 
+    const supabase = getSupabase();
+    if (!supabase) {
+        container.innerHTML = '<p style="text-align: center; color: var(--slate-500);">Error de conexión</p>';
+        return;
+    }
+
     try {
-        const { data, error } = await supabase
+        // Filtrar por competición activa
+        let matchesQuery = supabase
             .from('matches')
             .select('*')
-            .eq('jornada', jornada)
-            .order('match_date', { ascending: true });
+            .eq('jornada', jornada);
+        
+        // Filtrar por competition_id si existe
+        try {
+            matchesQuery = matchesQuery.eq('competition_id', currentCompetitionId);
+        } catch (e) {
+            console.warn('⚠️ Columna competition_id no existe en matches');
+        }
+        
+        const { data, error } = await executeQueryWithTimeout(() =>
+            matchesQuery.order('match_date', { ascending: true })
+        , 8000).catch(() => ({ data: [], error: null }));
 
         if (error) throw error;
 
@@ -5299,6 +5407,193 @@ if (typeof window !== 'undefined') {
     window.onDashboardStatisticsLigaChange = onDashboardStatisticsLigaChange;
     window.onDashboardClassificationLigaChange = onDashboardClassificationLigaChange;
     window.onCompetitionChange = onCompetitionChange;
+    window.loadCompetitionsList = loadCompetitionsList;
+    window.showCreateCompetitionModal = showCreateCompetitionModal;
+    window.createCompetition = createCompetition;
+    window.activateCompetition = activateCompetition;
+}
+
+// ========================================
+// GESTIÓN DE COMPETICIONES (ADMIN)
+// ========================================
+/**
+ * Cargar lista de competiciones en el panel admin
+ */
+async function loadCompetitionsList() {
+    const container = document.getElementById('competitions-list');
+    if (!container) return;
+
+    const supabase = getSupabase();
+    if (!supabase) {
+        container.innerHTML = '<p style="color: var(--red-500);">Error de conexión</p>';
+        return;
+    }
+
+    container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Cargando competiciones...</div>';
+
+    try {
+        const { data: competitions, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('competitions')
+                .select('*')
+                .order('id', { ascending: true })
+        , 8000).catch(() => ({ data: [], error: null }));
+
+        if (error) {
+            console.error('Error cargando competiciones:', error);
+            container.innerHTML = '<p style="color: var(--red-500);">Error al cargar competiciones</p>';
+            return;
+        }
+
+        if (!competitions || competitions.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-trophy"></i>
+                    <h3>No hay competiciones</h3>
+                    <p>Crea tu primera competición para empezar.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = competitions.map(comp => `
+            <div class="competition-card" style="padding: 20px; border: 1px solid var(--slate-700); border-radius: 8px; margin-bottom: 16px; background: var(--slate-800);">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                    <div>
+                        <h3 style="margin: 0 0 8px 0; color: white;">${escapeHtml(comp.name)}</h3>
+                        <p style="margin: 0; color: var(--slate-400); font-size: 14px;">Slug: ${escapeHtml(comp.slug || 'N/A')}</p>
+                        ${comp.description ? `<p style="margin: 8px 0 0 0; color: var(--slate-300);">${escapeHtml(comp.description)}</p>` : ''}
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        ${comp.is_active ? '<span style="padding: 4px 12px; background: var(--green-500); color: white; border-radius: 4px; font-size: 12px; font-weight: 600;">ACTIVA</span>' : '<span style="padding: 4px 12px; background: var(--slate-600); color: white; border-radius: 4px; font-size: 12px; font-weight: 600;">INACTIVA</span>'}
+                        ${comp.id === currentCompetitionId ? '<span style="padding: 4px 12px; background: var(--blue-500); color: white; border-radius: 4px; font-size: 12px; font-weight: 600;">ACTUAL</span>' : ''}
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 12px;">
+                    ${!comp.is_active || comp.id !== currentCompetitionId ? `
+                        <button class="btn btn-primary btn-small" onclick="activateCompetition(${comp.id})">
+                            <i class="fas fa-check"></i> Activar
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error:', error);
+        container.innerHTML = '<p style="color: var(--red-500);">Error al cargar competiciones</p>';
+    }
+}
+
+/**
+ * Mostrar modal para crear competición
+ */
+function showCreateCompetitionModal() {
+    const modal = document.getElementById('create-competition-modal');
+    if (!modal) {
+        // Si no existe el modal, crear uno temporal
+        const form = prompt('Nombre de la competición:');
+        if (form) {
+            createCompetition({ name: form, slug: form.toLowerCase().replace(/\s+/g, '-') });
+        }
+        return;
+    }
+    modal.classList.add('active');
+}
+
+/**
+ * Crear nueva competición
+ */
+async function createCompetition(formData) {
+    const supabase = getSupabase();
+    if (!supabase) {
+        showNotification('Error de conexión', 'error');
+        return;
+    }
+
+    const name = formData?.name || prompt('Nombre de la competición:');
+    if (!name) return;
+
+    const slug = formData?.slug || name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const description = formData?.description || '';
+
+    try {
+        const { data, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('competitions')
+                .insert({
+                    name: name.trim(),
+                    slug: slug.trim(),
+                    description: description.trim(),
+                    is_active: true
+                })
+                .select()
+                .single()
+        , 8000);
+
+        if (error) throw error;
+
+        showNotification(`Competición "${name}" creada correctamente`, 'success');
+        loadCompetitionsList();
+        
+        // Cerrar modal si existe
+        const modal = document.getElementById('create-competition-modal');
+        if (modal) modal.classList.remove('active');
+    } catch (error) {
+        console.error('Error creando competición:', error);
+        showNotification('Error al crear competición: ' + (error.message || 'Error desconocido'), 'error');
+    }
+}
+
+/**
+ * Activar una competición (cambiar competición activa)
+ */
+async function activateCompetition(competitionId) {
+    if (!confirm('¿Cambiar la competición activa? Esto cambiará los datos que verás en toda la aplicación.')) {
+        return;
+    }
+
+    const supabase = getSupabase();
+    if (!supabase) {
+        showNotification('Error de conexión', 'error');
+        return;
+    }
+
+    try {
+        // Actualizar todas las competiciones para desactivarlas
+        await executeQueryWithTimeout(() =>
+            supabase
+                .from('competitions')
+                .update({ is_active: false })
+        , 5000);
+
+        // Activar la competición seleccionada
+        const { error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('competitions')
+                .update({ is_active: true })
+                .eq('id', competitionId)
+        , 5000);
+
+        if (error) throw error;
+
+        // Guardar como competición activa
+        currentCompetitionId = competitionId;
+        await saveActiveCompetitionToConfig(competitionId);
+        await loadCompetitionData(competitionId);
+        await loadCompetitionSelector();
+
+        showNotification('Competición activada correctamente', 'success');
+        loadCompetitionsList();
+
+        // Recargar datos
+        const activePage = document.querySelector('.section.active')?.id;
+        if (activePage === 'dashboard-section' && typeof loadDashboard === 'function') {
+            loadDashboard();
+        }
+    } catch (error) {
+        console.error('Error activando competición:', error);
+        showNotification('Error al activar competición: ' + (error.message || 'Error desconocido'), 'error');
+    }
 }
 
 // ========================================
