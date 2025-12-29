@@ -2237,18 +2237,29 @@ function createMatchCard(match) {
     // Asegurar que la fecha se parsea correctamente
     let matchDate;
     try {
-        matchDate = new Date(match.match_date);
-        // Si la fecha no es válida, intentar parsear como string ISO
+        const dateStr = String(match.match_date);
+        
+        // Si la fecha viene en formato ISO sin Z, asumir que es UTC
+        // Si tiene Z o offset, usar directamente
+        if (dateStr.includes('T') && !dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.includes('-', 10)) {
+            // Formato ISO sin timezone: añadir Z para UTC
+            matchDate = new Date(dateStr + 'Z');
+        } else {
+            // Intentar parsear directamente
+            matchDate = new Date(dateStr);
+        }
+        
+        // Si la fecha no es válida después del primer intento
         if (isNaN(matchDate.getTime())) {
-            console.warn(`⚠️ Fecha inválida para partido ${match.id}: ${match.match_date}`);
-            // Intentar añadir Z para UTC si no lo tiene
-            const dateStr = String(match.match_date);
-            if (!dateStr.includes('Z') && !dateStr.includes('+') && !dateStr.includes('-', 10)) {
+            // Intentar añadir Z si no lo tiene
+            if (!dateStr.includes('Z') && !dateStr.includes('+')) {
                 matchDate = new Date(dateStr + 'Z');
             } else {
                 matchDate = new Date(dateStr);
             }
         }
+        
+        // Si aún no es válida, usar fallback
         if (isNaN(matchDate.getTime())) {
             console.error(`❌ No se pudo parsear la fecha del partido ${match.id}: ${match.match_date}`);
             // Si no se puede parsear, asumir que es futuro para no bloquearlo incorrectamente
@@ -2262,29 +2273,43 @@ function createMatchCard(match) {
     
     const now = new Date();
     
-    // Bloquear partidos que ya han empezado (fecha y hora han pasado)
-    // Comparar directamente: un partido está bloqueado si su fecha/hora YA pasó
-    // Permitir pronósticos en TODOS los partidos que aún no han empezado
-    const matchTimestamp = matchDate.getTime();
-    const nowTimestamp = now.getTime();
-    
     // Un partido está finalizado si tiene resultados
     const isFinished = match.home_score !== null && match.away_score !== null;
     
-    // Bloquear SOLO si la fecha/hora del partido YA pasó
-    // Si matchTimestamp es mayor que nowTimestamp, el partido es futuro y NO debe estar bloqueado
-    const isLocked = matchTimestamp <= nowTimestamp;
+    // Comparar fechas usando timestamps (ambos en UTC internamente)
+    // getTime() devuelve milisegundos desde epoch UTC, por lo que la comparación es correcta
+    const matchTimestamp = matchDate.getTime();
+    const nowTimestamp = now.getTime();
     
-    // Debug temporal: Log para verificar fechas de todos los partidos
+    // Añadir un margen de 5 minutos antes del inicio para permitir cambios de último minuto
+    const MARGIN_MINUTES = 5;
+    const marginMs = MARGIN_MINUTES * 60 * 1000;
+    
+    // Bloquear SOLO si la fecha/hora del partido YA pasó (con margen de 5 minutos)
+    // Un partido está bloqueado si: (hora del partido - margen) <= hora actual
+    // Si el partido es en el futuro: matchTimestamp > nowTimestamp, entonces NO está bloqueado
+    // Si el partido es en el pasado: matchTimestamp < nowTimestamp, entonces SÍ está bloqueado
+    const isLocked = (matchTimestamp - marginMs) <= nowTimestamp;
+    
+    // Debug: Log para verificar fechas
+    const diffMinutes = Math.round((matchTimestamp - nowTimestamp) / (60 * 1000));
+    const diffHours = (diffMinutes / 60).toFixed(1);
+    const diffDays = (diffMinutes / (60 * 24)).toFixed(1);
+    
+    // Loggear información del partido para depuración
     console.log(`🔍 Partido ${match.id} (${match.home_team} vs ${match.away_team}):`, {
         fechaOriginal: match.match_date,
         matchDateISO: matchDate.toISOString(),
         matchDateLocal: matchDate.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }),
         nowISO: now.toISOString(),
         nowLocal: now.toLocaleString('es-ES', { timeZone: 'Europe/Madrid' }),
-        diffMinutes: Math.round((nowTimestamp - matchTimestamp) / (60 * 1000)),
+        diffMinutes: diffMinutes,
+        diffHours: diffHours + ' horas',
+        diffDays: diffDays + ' días',
+        tiempoRestante: diffMinutes > 0 ? `Faltan ${diffMinutes} minutos (${diffHours}h)` : `Hace ${Math.abs(diffMinutes)} minutos`,
         isLocked: isLocked ? '🔒 BLOQUEADO' : '✅ DISPONIBLE',
-        isFinished: isFinished ? 'Finalizado' : 'Pendiente'
+        isFinished: isFinished ? 'Finalizado' : 'Pendiente',
+        marginApplied: `${MARGIN_MINUTES} minutos antes del inicio`
     });
 
     let pointsEarned = null;
