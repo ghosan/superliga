@@ -5129,35 +5129,133 @@ async function loadUsersList() {
     const container = document.getElementById('users-list');
     if (!container) return;
 
+    const supabase = getSupabase();
+    if (!supabase) {
+        container.innerHTML = '<p style="color: var(--red-500);">Error de conexión</p>';
+        return;
+    }
+
+    container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Cargando usuarios...</div>';
+
     try {
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .order('created_at', { ascending: false });
+        // Obtener todos los usuarios
+        const { data: users, error } = await executeQueryWithTimeout(() =>
+            supabase
+                .from('users')
+                .select('id, name, email, is_admin, total_points, created_at')
+                .order('created_at', { ascending: false })
+        , 8000).catch(() => ({ data: [], error: null }));
 
-        if (error) throw error;
+        if (error) {
+            console.error('Error cargando usuarios:', error);
+            container.innerHTML = '<p style="color: var(--red-500);">Error al cargar usuarios</p>';
+            return;
+        }
 
-        if (!data || data.length === 0) {
+        if (!users || users.length === 0) {
             container.innerHTML = '<p>No hay usuarios registrados.</p>';
             return;
         }
 
-        container.innerHTML = data.map(user => `
-            <div class="user-item">
-                <div class="user-info">
-                    <div class="user-avatar">${getInitials(user.name)}</div>
-                    <div class="user-details">
-                        <h4>${user.name}</h4>
-                        <p>${user.email}</p>
+        // Para cada usuario, obtener sus ligas y competiciones
+        const usersWithData = await Promise.all(users.map(async (user) => {
+            // Obtener ligas del usuario
+            const { data: userLigas, error: ligasError } = await executeQueryWithTimeout(() =>
+                supabase
+                    .from('liga_members')
+                    .select(`
+                        liga_id,
+                        ligas (
+                            id,
+                            name,
+                            competition_id,
+                            competitions (
+                                id,
+                                name
+                            )
+                        )
+                    `)
+                    .eq('user_id', user.id)
+            , 5000).catch(() => ({ data: [], error: null }));
+
+            const ligas = userLigas || [];
+            
+            // Agrupar ligas por competición
+            const competicionesMap = new Map();
+            ligas.forEach(item => {
+                if (item.ligas && item.ligas.competition_id) {
+                    const compId = item.ligas.competition_id;
+                    const compName = item.ligas.competitions?.name || 'Sin nombre';
+                    
+                    if (!competicionesMap.has(compId)) {
+                        competicionesMap.set(compId, {
+                            id: compId,
+                            name: compName,
+                            ligas: []
+                        });
+                    }
+                    
+                    competicionesMap.get(compId).ligas.push({
+                        id: item.ligas.id,
+                        name: item.ligas.name
+                    });
+                }
+            });
+
+            const competiciones = Array.from(competicionesMap.values());
+
+            return {
+                ...user,
+                competiciones,
+                ligas: ligas.map(item => item.ligas).filter(Boolean)
+            };
+        }));
+
+        // Renderizar usuarios con sus competiciones y ligas
+        container.innerHTML = usersWithData.map(user => {
+            const competicionesHtml = user.competiciones.length > 0 
+                ? user.competiciones.map(comp => `
+                    <div style="margin-bottom: 12px; padding: 10px; background: var(--slate-50); border-radius: 6px; border-left: 3px solid var(--blue-500);">
+                        <div style="font-weight: 600; color: var(--slate-900); margin-bottom: 6px;">
+                            <i class="fas fa-trophy" style="color: var(--amber-500); margin-right: 6px;"></i>
+                            ${escapeHtml(comp.name)}
+                        </div>
+                        <div style="font-size: 13px; color: var(--slate-600); margin-left: 20px;">
+                            <strong>Ligas:</strong> ${comp.ligas.map(l => escapeHtml(l.name)).join(', ') || 'Ninguna'}
+                        </div>
+                    </div>
+                `).join('')
+                : '<p style="color: var(--slate-500); font-size: 13px; margin: 0;">No participa en ninguna competición</p>';
+
+            return `
+                <div class="user-item" style="margin-bottom: 20px; padding: 16px; background: white; border-radius: 8px; border: 1px solid var(--slate-200);">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                        <div class="user-info" style="display: flex; align-items: center; gap: 12px;">
+                            <div class="user-avatar">${getInitials(user.name)}</div>
+                            <div class="user-details">
+                                <h4 style="margin: 0 0 4px 0;">${escapeHtml(user.name)}</h4>
+                                <p style="margin: 0; color: var(--slate-600); font-size: 14px;">${escapeHtml(user.email)}</p>
+                                <p style="margin: 4px 0 0 0; color: var(--slate-500); font-size: 12px;">
+                                    Puntos totales: <strong>${user.total_points || 0}</strong>
+                                </p>
+                            </div>
+                        </div>
+                        <span class="user-badge ${user.is_admin ? 'admin' : 'user'}">
+                            ${user.is_admin ? 'Admin' : 'Usuario'}
+                        </span>
+                    </div>
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--slate-200);">
+                        <div style="font-weight: 600; color: var(--slate-700); margin-bottom: 8px; font-size: 14px;">
+                            <i class="fas fa-trophy" style="margin-right: 6px;"></i>Competiciones y Ligas
+                        </div>
+                        ${competicionesHtml}
                     </div>
                 </div>
-                <span class="user-badge ${user.is_admin ? 'admin' : 'user'}">
-                    ${user.is_admin ? 'Admin' : 'Usuario'}
-                </span>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     } catch (error) {
         console.error('Error cargando usuarios:', error);
+        container.innerHTML = '<p style="color: var(--red-500);">Error al cargar usuarios</p>';
     }
 }
 
