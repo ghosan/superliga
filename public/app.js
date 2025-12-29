@@ -4273,8 +4273,18 @@ function loadTeamsInSelectors() {
 }
 
 async function loadJornadasSelectors(type = 'all') {
-    const adminSelect = document.getElementById('admin-jornada-select');
-    const resultsSelect = document.getElementById('results-jornada-select');
+    console.log(`📅 loadJornadasSelectors() llamado con tipo: ${type}`);
+    
+    // Buscar elementos tanto en el modal como en la sección original
+    let adminSelect = document.getElementById('admin-jornada-select');
+    if (!adminSelect && (type === 'admin' || type === 'all')) {
+        adminSelect = document.querySelector('#admin-panel-modal #admin-jornada-select');
+    }
+    
+    let resultsSelect = document.getElementById('results-jornada-select');
+    if (!resultsSelect && (type === 'results' || type === 'all')) {
+        resultsSelect = document.querySelector('#admin-panel-modal #results-jornada-select');
+    }
     
     const supabase = getSupabase();
     if (!supabase) {
@@ -4291,10 +4301,17 @@ async function loadJornadasSelectors(type = 'all') {
         // Obtener la competición seleccionada según el tipo
         let competitionId = null;
         if (type === 'admin') {
-            const compSelect = document.getElementById('admin-partidos-competition-select');
+            let compSelect = document.getElementById('admin-partidos-competition-select');
+            if (!compSelect) {
+                compSelect = document.querySelector('#admin-panel-modal #admin-partidos-competition-select');
+            }
             competitionId = compSelect ? parseInt(compSelect.value) : currentCompetitionId;
+            console.log(`📋 Competición para admin: ${competitionId} (selector: ${compSelect?.value}, current: ${currentCompetitionId})`);
         } else if (type === 'results') {
-            const compSelect = document.getElementById('admin-resultados-competition-select');
+            let compSelect = document.getElementById('admin-resultados-competition-select');
+            if (!compSelect) {
+                compSelect = document.querySelector('#admin-panel-modal #admin-resultados-competition-select');
+            }
             competitionId = compSelect ? parseInt(compSelect.value) : currentCompetitionId;
         } else {
             competitionId = currentCompetitionId;
@@ -4311,6 +4328,7 @@ async function loadJornadasSelectors(type = 'all') {
         }
 
         // Obtener jornadas únicas de los partidos de esta competición
+        console.log(`🔍 Buscando jornadas para competición ${competitionId}`);
         let matchesQuery = supabase
             .from('matches')
             .select('jornada')
@@ -4318,12 +4336,19 @@ async function loadJornadasSelectors(type = 'all') {
 
         const { data: matches, error } = await executeQueryWithTimeout(() => matchesQuery, 5000).catch(() => ({ data: [], error: null }));
 
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Error al cargar jornadas:', error);
+            throw error;
+        }
+
+        console.log(`✅ Partidos encontrados: ${matches?.length || 0}`);
 
         // Obtener jornadas únicas y ordenarlas
         const jornadas = matches && matches.length > 0
             ? [...new Set(matches.map(m => m.jornada))].sort((a, b) => a - b)
             : [];
+        
+        console.log(`📅 Jornadas únicas encontradas:`, jornadas);
 
         // Generar opciones de jornadas
         let optionsHtml = '<option value="">Todas las jornadas</option>';
@@ -4336,10 +4361,20 @@ async function loadJornadasSelectors(type = 'all') {
         }
 
         if (type === 'admin' || type === 'all') {
-            if (adminSelect) adminSelect.innerHTML = optionsHtml;
+            if (adminSelect) {
+                adminSelect.innerHTML = optionsHtml;
+                console.log(`✅ Selector de jornadas admin actualizado con ${jornadas.length} jornadas`);
+            } else {
+                console.warn('⚠️ Selector admin-jornada-select no encontrado');
+            }
         }
         if (type === 'results' || type === 'all') {
-            if (resultsSelect) resultsSelect.innerHTML = optionsHtml;
+            if (resultsSelect) {
+                resultsSelect.innerHTML = optionsHtml;
+                console.log(`✅ Selector de jornadas results actualizado con ${jornadas.length} jornadas`);
+            } else {
+                console.warn('⚠️ Selector results-jornada-select no encontrado');
+            }
         }
     } catch (error) {
         console.error('Error cargando jornadas:', error);
@@ -5354,12 +5389,22 @@ async function loadAdminMatches() {
     const jornada = jornadaSelect?.value;
     const competitionId = compSelect ? parseInt(compSelect.value) : currentCompetitionId;
 
+    console.log('📊 Parámetros de búsqueda:', {
+        jornada: jornada,
+        competitionId: competitionId,
+        compSelectValue: compSelect?.value,
+        currentCompetitionId: currentCompetitionId
+    });
+
     if (!competitionId) {
+        console.warn('⚠️ No hay competición seleccionada');
         container.innerHTML = '<p style="text-align: center; color: var(--slate-500);">Selecciona una competición primero</p>';
         return;
     }
 
     try {
+        console.log(`🔍 Buscando partidos para competición ${competitionId}${jornada ? ` y jornada ${jornada}` : ''}`);
+        
         let matchesQuery = supabase
             .from('matches')
             .select('*')
@@ -5371,9 +5416,17 @@ async function loadAdminMatches() {
 
         const { data, error } = await executeQueryWithTimeout(() =>
             matchesQuery.order('match_date', { ascending: true })
-        , 8000).catch(() => ({ data: [], error: null }));
+        , 8000).catch((err) => {
+            console.error('❌ Error en la consulta:', err);
+            return { data: [], error: err };
+        });
 
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Error al cargar partidos:', error);
+            throw error;
+        }
+
+        console.log(`✅ Partidos encontrados: ${data?.length || 0}`);
 
         if (!data || data.length === 0) {
             const message = jornada 
