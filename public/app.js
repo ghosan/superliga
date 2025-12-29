@@ -4417,11 +4417,21 @@ async function loadAdminPartidosCompetitionSelector() {
                 select.appendChild(option);
             });
             
+            // Añadir event listener si no existe
+            const existingHandler = select.getAttribute('data-listener-attached');
+            if (!existingHandler) {
+                select.addEventListener('change', onAdminPartidosCompetitionChange);
+                select.setAttribute('data-listener-attached', 'true');
+                console.log('✅ Event listener añadido al selector');
+            }
+            
             // Si hay una competición seleccionada, cargar jornadas y partidos
             if (currentCompetitionId) {
                 await loadJornadasSelectors('admin');
                 loadAdminMatches();
             }
+            
+            console.log(`✅ ${competitions.length} competiciones cargadas en el selector`);
         } else {
             select.innerHTML = '<option value="">No hay competiciones activas</option>';
         }
