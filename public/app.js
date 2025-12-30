@@ -4452,26 +4452,33 @@ async function loadAdminPartidosCompetitionSelector() {
                 select.appendChild(option);
             });
             
-            // Añadir event listener al selector
-            // Usar event delegation o añadir directamente
-            const selectForListener = document.getElementById('admin-partidos-competition-select') || 
-                                     document.querySelector('#admin-panel-modal #admin-partidos-competition-select');
-            
-            if (selectForListener) {
-                // Remover listener anterior si existe (usando una función nombrada para poder removerla)
-                if (selectForListener._changeHandler) {
-                    selectForListener.removeEventListener('change', selectForListener._changeHandler);
+            // Añadir event listener al selector DESPUÉS de poblar las opciones
+            // Usar setTimeout para asegurar que el DOM esté actualizado
+            setTimeout(() => {
+                const selectForListener = document.getElementById('admin-partidos-competition-select') || 
+                                         document.querySelector('#admin-panel-modal #admin-partidos-competition-select');
+                
+                if (selectForListener) {
+                    console.log('🔧 Configurando event listener para selector de competición');
+                    
+                    // Remover listener anterior si existe (usando una función nombrada para poder removerla)
+                    if (selectForListener._changeHandler) {
+                        selectForListener.removeEventListener('change', selectForListener._changeHandler);
+                        console.log('🗑️ Listener anterior removido');
+                    }
+                    
+                    // Crear nueva función handler
+                    selectForListener._changeHandler = function(e) {
+                        console.log('🔄 Cambio detectado en selector, valor seleccionado:', e.target.value);
+                        onAdminPartidosCompetitionChange();
+                    };
+                    
+                    selectForListener.addEventListener('change', selectForListener._changeHandler);
+                    console.log('✅ Event listener añadido al selector correctamente');
+                } else {
+                    console.error('❌ No se pudo encontrar el selector para añadir event listener');
                 }
-                
-                // Crear nueva función handler
-                selectForListener._changeHandler = function() {
-                    console.log('🔄 Cambio detectado en selector (desde loadAdminPartidosCompetitionSelector)');
-                    onAdminPartidosCompetitionChange();
-                };
-                
-                selectForListener.addEventListener('change', selectForListener._changeHandler);
-                console.log('✅ Event listener añadido al selector');
-            }
+            }, 100);
             
             // Si hay una competición seleccionada, cargar jornadas y partidos
             if (currentCompetitionId) {
