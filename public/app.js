@@ -6424,13 +6424,29 @@ function openAdminTab(tabName) {
         
         // Actualizar los selectores para que busquen en el modal
         if (tabName === 'partidos') {
-            // Buscar el selector en el modal
-            const selector = document.querySelector('#admin-panel-modal #admin-partidos-competition-select');
+            // Buscar el selector en el modal y añadir event listener directamente
+            let selector = document.querySelector('#admin-panel-modal #admin-partidos-competition-select');
+            if (!selector) {
+                selector = document.getElementById('admin-partidos-competition-select');
+            }
+            
             if (selector) {
-                console.log('✅ Selector encontrado en modal');
+                console.log('✅ Selector encontrado, configurando event listener');
+                // Eliminar listeners anteriores si existen
+                const newSelector = selector.cloneNode(true);
+                selector.parentNode.replaceChild(newSelector, selector);
+                selector = newSelector;
+                
+                // Añadir event listener directamente
+                selector.addEventListener('change', function() {
+                    console.log('🔄 Cambio detectado en selector (event listener directo)');
+                    onAdminPartidosCompetitionChange();
+                });
+                console.log('✅ Event listener directo añadido');
             } else {
                 console.warn('⚠️ Selector no encontrado en modal, buscando en admin-section');
             }
+            
             loadAdminPartidosCompetitionSelector();
         } else if (tabName === 'resultados') {
             loadAdminResultadosCompetitionSelector();
@@ -6446,7 +6462,7 @@ function openAdminTab(tabName) {
         
         // Cargar datos generales
         loadAdminData();
-    }, 200);
+    }, 300);
 }
 
 function closeAdminPanel() {
