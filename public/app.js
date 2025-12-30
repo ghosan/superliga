@@ -4452,19 +4452,25 @@ async function loadAdminPartidosCompetitionSelector() {
                 select.appendChild(option);
             });
             
-            // Añadir event listener si no existe
-            // Primero, eliminar cualquier listener anterior
-            const newSelect = select.cloneNode(true);
-            select.parentNode.replaceChild(newSelect, select);
-            const freshSelect = document.getElementById('admin-partidos-competition-select') || 
-                               document.querySelector('#admin-panel-modal #admin-partidos-competition-select');
+            // Añadir event listener al selector
+            // Usar event delegation o añadir directamente
+            const selectForListener = document.getElementById('admin-partidos-competition-select') || 
+                                     document.querySelector('#admin-panel-modal #admin-partidos-competition-select');
             
-            if (freshSelect) {
-                freshSelect.addEventListener('change', function(e) {
+            if (selectForListener) {
+                // Remover listener anterior si existe (usando una función nombrada para poder removerla)
+                if (selectForListener._changeHandler) {
+                    selectForListener.removeEventListener('change', selectForListener._changeHandler);
+                }
+                
+                // Crear nueva función handler
+                selectForListener._changeHandler = function() {
                     console.log('🔄 Cambio detectado en selector (desde loadAdminPartidosCompetitionSelector)');
                     onAdminPartidosCompetitionChange();
-                });
-                console.log('✅ Event listener añadido al selector (refresh)');
+                };
+                
+                selectForListener.addEventListener('change', selectForListener._changeHandler);
+                console.log('✅ Event listener añadido al selector');
             }
             
             // Si hay una competición seleccionada, cargar jornadas y partidos
