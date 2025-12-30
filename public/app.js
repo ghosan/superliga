@@ -4453,11 +4453,18 @@ async function loadAdminPartidosCompetitionSelector() {
             });
             
             // Añadir event listener si no existe
-            const existingHandler = select.getAttribute('data-listener-attached');
-            if (!existingHandler) {
-                select.addEventListener('change', onAdminPartidosCompetitionChange);
-                select.setAttribute('data-listener-attached', 'true');
-                console.log('✅ Event listener añadido al selector');
+            // Primero, eliminar cualquier listener anterior
+            const newSelect = select.cloneNode(true);
+            select.parentNode.replaceChild(newSelect, select);
+            const freshSelect = document.getElementById('admin-partidos-competition-select') || 
+                               document.querySelector('#admin-panel-modal #admin-partidos-competition-select');
+            
+            if (freshSelect) {
+                freshSelect.addEventListener('change', function(e) {
+                    console.log('🔄 Cambio detectado en selector (desde loadAdminPartidosCompetitionSelector)');
+                    onAdminPartidosCompetitionChange();
+                });
+                console.log('✅ Event listener añadido al selector (refresh)');
             }
             
             // Si hay una competición seleccionada, cargar jornadas y partidos
