@@ -1931,10 +1931,22 @@ async function loadDashboardMatches() {
     container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
 
     try {
-        const { data: matches, error } = await supabase
+        // Filtrar por competición activa
+        let matchesQuery = supabase
             .from('matches')
             .select('*')
-            .eq('jornada', currentJornada)
+            .eq('jornada', currentJornada);
+        
+        // Filtrar por competition_id si existe
+        try {
+            if (currentCompetitionId) {
+                matchesQuery = matchesQuery.eq('competition_id', currentCompetitionId);
+            }
+        } catch (e) {
+            console.warn('⚠️ Columna competition_id no existe en matches');
+        }
+        
+        const { data: matches, error } = await matchesQuery
             .order('match_date', { ascending: true })
             .limit(5);
 
@@ -3446,6 +3458,26 @@ async function savePredictions() {
     const ligaId = parseInt(ligaSelect.value);
     console.log('💾 Guardando para liga:', ligaId);
 
+    // Validar que la liga pertenece a la competición activa
+    try {
+        const { data: liga, error: ligaError } = await supabase
+            .from('ligas')
+            .select('id, competition_id')
+            .eq('id', ligaId)
+            .single();
+        
+        if (ligaError) throw ligaError;
+        
+        // Verificar que la liga pertenece a la competición activa
+        if (liga.competition_id && parseInt(liga.competition_id) !== currentCompetitionId) {
+            showNotification('Esta liga no pertenece a la competición activa. Por favor, selecciona la competición correcta.', 'error');
+            return;
+        }
+    } catch (error) {
+        console.warn('⚠️ No se pudo validar la competición de la liga:', error);
+        // Continuar de todas formas si hay error (compatibilidad)
+    }
+
     // Buscar filas de partidos (match-row es la clase actual)
     const matchRows = document.querySelectorAll('.match-row:not(.locked)');
     console.log('Filas encontradas:', matchRows.length);
@@ -3588,11 +3620,22 @@ async function loadProgress() {
             activeJornada = currentJornada || 1;
         }
 
-        // Obtener total de partidos de la jornada activa
-        const { data: matches, error: matchError } = await supabase
+        // Obtener total de partidos de la jornada activa (filtrar por competición)
+        let matchesQuery = supabase
             .from('matches')
             .select('id')
             .eq('jornada', activeJornada);
+        
+        // Filtrar por competition_id si existe
+        try {
+            if (currentCompetitionId) {
+                matchesQuery = matchesQuery.eq('competition_id', currentCompetitionId);
+            }
+        } catch (e) {
+            console.warn('⚠️ Columna competition_id no existe en matches');
+        }
+        
+        const { data: matches, error: matchError } = await matchesQuery;
 
         if (matchError) {
             console.warn('⚠️ Error obteniendo partidos para progreso:', matchError);
@@ -3761,6 +3804,18 @@ async function loadLigaClassification() {
     container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
 
     try {
+        // Primero obtener la liga para saber su competition_id
+        const ligaResult = await executeQueryWithTimeout(() => 
+            supabase
+                .from('ligas')
+                .select('id, competition_id')
+                .eq('id', ligaId)
+                .single()
+        , 5000).catch(() => ({ data: null, error: null }));
+        
+        const liga = ligaResult.data;
+        const ligaCompetitionId = liga?.competition_id || currentCompetitionId;
+        
         // Obtener miembros de la liga
         const membersResult = await executeQueryWithTimeout(() => 
             supabase
@@ -3797,13 +3852,22 @@ async function loadLigaClassification() {
         
         const predictions = predictionsResult.data || [];
 
-        // Obtener jornadas con partidos que tienen resultados
-        const matchesResult = await executeQueryWithTimeout(() => 
-            supabase
-                .from('matches')
-                .select('jornada')
-                .not('home_score', 'is', null)
-        , 10000);
+        // Obtener jornadas con partidos que tienen resultados (FILTRAR POR COMPETICIÓN DE LA LIGA)
+        let matchesQuery = supabase
+            .from('matches')
+            .select('jornada')
+            .not('home_score', 'is', null);
+        
+        // Filtrar por competition_id de la liga
+        try {
+            if (ligaCompetitionId) {
+                matchesQuery = matchesQuery.eq('competition_id', ligaCompetitionId);
+            }
+        } catch (e) {
+            console.warn('⚠️ Columna competition_id no existe en matches');
+        }
+        
+        const matchesResult = await executeQueryWithTimeout(() => matchesQuery, 10000);
         
         const matches = matchesResult.data || [];
         const jornadasConResultados = [...new Set(matches.map(m => m.jornada))].sort((a, b) => a - b);
@@ -3920,15 +3984,28 @@ async function createLiga(event) {
     const code = generateLigaCode();
 
     try {
+        // Preparar datos de la liga con competition_id
+        const ligaData = {
+            name,
+            description,
+            code,
+            created_by: currentUser.id
+        };
+        
+        // Añadir competition_id si existe la columna
+        try {
+            if (currentCompetitionId) {
+                ligaData.competition_id = currentCompetitionId;
+            }
+        } catch (e) {
+            // Si la columna no existe, continuar sin ella (compatibilidad)
+            console.warn('⚠️ Columna competition_id no existe en ligas');
+        }
+        
         // Crear liga
         const { data: liga, error: ligaError } = await supabase
             .from('ligas')
-            .insert({
-                name,
-                description,
-                code,
-                created_by: currentUser.id
-            })
+            .insert(ligaData)
             .select()
             .single();
 
