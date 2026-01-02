@@ -157,3 +157,4 @@ UPDATE ligas SET competition_id = 1 WHERE competition_id IS NULL;
 **Fecha de creación**: 2025-01-29
 
 
+
