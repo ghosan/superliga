@@ -4048,10 +4048,10 @@ async function joinLiga(event) {
     const code = document.getElementById('liga-code').value.toUpperCase();
 
     try {
-        // Buscar liga por código
+        // Buscar liga por código (incluyendo competition_id)
         const { data: liga, error: ligaError } = await supabase
             .from('ligas')
-            .select('id')
+            .select('id, name, competition_id')
             .eq('code', code)
             .single();
 
@@ -4071,6 +4071,22 @@ async function joinLiga(event) {
         if (existing) {
             showNotification('Ya eres miembro de esta liga', 'warning');
             return;
+        }
+
+        // Informar si la liga pertenece a otra competición
+        if (liga.competition_id && parseInt(liga.competition_id) !== currentCompetitionId) {
+            const { data: comp } = await supabase
+                .from('competitions')
+                .select('name')
+                .eq('id', liga.competition_id)
+                .single();
+            
+            const compName = comp?.name || 'otra competición';
+            const currentCompName = currentCompetition?.name || 'la competición actual';
+            
+            if (!confirm(`Esta liga pertenece a "${compName}", no a "${currentCompName}". ¿Quieres unirte de todas formas? Podrás cambiar de competición para ver esta liga.`)) {
+                return;
+            }
         }
 
         // Unirse a la liga
@@ -6212,10 +6228,10 @@ async function joinLigaFromProfile(event) {
     }
 
     try {
-        // Buscar liga por código
+        // Buscar liga por código (incluyendo competition_id)
         const { data: liga, error: ligaError } = await supabase
             .from('ligas')
-            .select('id, name')
+            .select('id, name, competition_id')
             .eq('code', code)
             .single();
 
@@ -6236,6 +6252,23 @@ async function joinLigaFromProfile(event) {
             showNotification('Ya eres miembro de esta liga', 'warning');
             document.getElementById('profile-liga-code').value = '';
             return;
+        }
+
+        // Informar si la liga pertenece a otra competición
+        if (liga.competition_id && parseInt(liga.competition_id) !== currentCompetitionId) {
+            const { data: comp } = await supabase
+                .from('competitions')
+                .select('name')
+                .eq('id', liga.competition_id)
+                .single();
+            
+            const compName = comp?.name || 'otra competición';
+            const currentCompName = currentCompetition?.name || 'la competición actual';
+            
+            if (!confirm(`Esta liga pertenece a "${compName}", no a "${currentCompName}". ¿Quieres unirte de todas formas? Podrás cambiar de competición para ver esta liga.`)) {
+                document.getElementById('profile-liga-code').value = '';
+                return;
+            }
         }
 
         // Unirse a la liga
