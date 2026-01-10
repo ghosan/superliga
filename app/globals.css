@@ -3955,20 +3955,393 @@ body {
     }
 }
 
+@media (max-width: 640px) {
+    /* Hero Section - Small tablets */
+    .hero-content {
+        padding: 32px 20px;
+    }
+
+    .logo-container h1 {
+        font-size: 2.25rem;
+    }
+
+    .logo-icon {
+        font-size: 3rem;
+    }
+
+    .tagline {
+        font-size: 1rem;
+    }
+
+    .description {
+        font-size: 0.938rem;
+    }
+
+    /* Buttons */
+    .btn {
+        padding: 12px 20px;
+        font-size: 14px;
+    }
+
+    .btn i {
+        font-size: 16px;
+    }
+
+    /* Dashboard Summary Cards */
+    .dashboard-summary {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .dashboard-summary-card {
+        min-width: auto;
+    }
+
+    /* Modal improvements */
+    .modal-content {
+        max-width: 95%;
+        padding: 24px 16px;
+        margin: 12px auto;
+    }
+
+    .modal-content h2 {
+        font-size: 1.25rem;
+    }
+
+    /* Form improvements */
+    .form-group {
+        margin-bottom: 16px;
+    }
+
+    .form-group label {
+        font-size: 13px;
+        margin-bottom: 6px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        font-size: 14px;
+        padding: 10px 12px;
+    }
+
+    /* Classification tables */
+    .classification-row {
+        font-size: 12px;
+        padding: 10px 12px;
+    }
+
+    .player-name {
+        font-size: 13px;
+    }
+
+    .player-points {
+        font-size: 15px;
+    }
+}
+
 @media (max-width: 480px) {
+    /* Hero Section - Mobile */
+    .hero-content {
+        padding: 24px 16px;
+    }
+
+    .logo-container {
+        gap: 12px;
+    }
+
+    .logo-container h1 {
+        font-size: 1.75rem;
+    }
+
+    .logo-icon {
+        font-size: 2.5rem;
+    }
+
+    .tagline {
+        font-size: 0.875rem;
+    }
+
+    .description {
+        font-size: 0.875rem;
+        max-width: 100%;
+    }
+
+    /* Feature Cards */
+    .feature {
+        padding: 20px 16px;
+    }
+
+    .feature i {
+        font-size: 2rem;
+    }
+
+    .feature h3 {
+        font-size: 1rem;
+    }
+
+    .feature p {
+        font-size: 0.813rem;
+    }
+
+    /* Buttons */
+    .auth-buttons {
+        gap: 10px;
+        width: 100%;
+    }
+
+    .btn {
+        padding: 10px 16px;
+        font-size: 13px;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .btn-full {
+        width: 100%;
+    }
+
+    /* Modals - Extra small */
+    .modal-content {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        padding: 20px 16px;
+        border-radius: 0;
+        max-height: 100vh;
+    }
+
+    .close-modal {
+        top: 12px;
+        right: 12px;
+        font-size: 28px;
+    }
+
+    .modal-content h2 {
+        font-size: 1.125rem;
+        margin-bottom: 16px;
+    }
+
+    /* Forms */
+    .form-group {
+        margin-bottom: 14px;
+    }
+
+    .form-group label {
+        font-size: 12px;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        font-size: 13px;
+        padding: 9px 11px;
+    }
+
+    /* Dashboard */
+    .dashboard-welcome h1 {
+        font-size: 1.25rem;
+    }
+
+    .dashboard-welcome p {
+        font-size: 13px;
+    }
+
+    /* Summary Cards */
+    .summary-value {
+        font-size: 1.5rem;
+    }
+
+    .summary-label {
+        font-size: 11px;
+    }
+
+    /* Liga Cards */
+    .liga-card-dashboard {
+        padding: 16px;
+    }
+
+    .liga-card-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+
+    .liga-card-header-dashboard h3 {
+        font-size: 1rem;
+    }
+
+    .liga-card-stats {
+        gap: 10px;
+    }
+
+    .liga-stat-label {
+        font-size: 11px;
+    }
+
+    .liga-stat-value {
+        font-size: 1.125rem;
+    }
+
+    /* Match rows */
     .match-team .team-name {
         max-width: 70px;
         font-size: 11px;
     }
 
     .goal-select {
-        width: 44px;
-        height: 30px;
+        width: 40px;
+        height: 28px;
+        font-size: 12px;
+    }
+
+    /* Classification */
+    .classification-header {
+        font-size: 11px;
+        padding: 8px 10px;
+    }
+
+    .classification-row {
+        font-size: 11px;
+        padding: 8px 10px;
+    }
+
+    .player-position {
+        font-size: 12px;
+    }
+
+    .player-name {
+        font-size: 12px;
+    }
+
+    .player-points {
+        font-size: 14px;
+    }
+
+    /* Quick actions */
+    .quick-actions-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .quick-action-card {
+        padding: 14px;
+    }
+
+    .quick-action-card h4 {
         font-size: 13px;
     }
 
-    .hero-content h1 {
-        font-size: 1.75rem;
+    .quick-action-card i {
+        font-size: 1.25rem;
+    }
+
+    /* Section headers */
+    .section-header h2 {
+        font-size: 1.125rem;
+    }
+
+    /* Stats cards */
+    .stat-card {
+        padding: 14px;
+    }
+
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+
+    .stat-value {
+        font-size: 1.25rem;
+    }
+
+    .stat-label {
+        font-size: 11px;
+    }
+
+    /* Navigation */
+    .nav-link {
+        padding: 8px 6px;
+        font-size: 11px;
+    }
+
+    .nav-link i {
+        font-size: 18px;
+    }
+
+    /* Admin cards */
+    .admin-card-large {
+        padding: 16px;
+        flex-direction: column;
+        text-align: center;
+        align-items: center;
+    }
+
+    .admin-card-icon {
+        width: 56px;
+        height: 56px;
+        font-size: 24px;
+    }
+
+    .admin-card-content h3 {
+        font-size: 16px;
+    }
+
+    .admin-card-content p {
+        font-size: 13px;
+    }
+
+    /* Footer */
+    .footer {
+        padding: 24px 16px 16px;
+    }
+
+    .footer-logo {
+        font-size: 1.25rem;
+    }
+
+    .footer-logo i {
+        font-size: 1.5rem;
+    }
+
+    .footer-title {
+        font-size: 0.938rem;
+    }
+
+    .footer-links a {
+        font-size: 13px;
+    }
+}
+
+/* Extra small devices - 360px and below */
+@media (max-width: 360px) {
+    .logo-container h1 {
+        font-size: 1.5rem;
+    }
+
+    .logo-icon {
+        font-size: 2rem;
+    }
+
+    .btn {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+
+    .modal-content h2 {
+        font-size: 1rem;
+    }
+
+    .goal-select {
+        width: 36px;
+        height: 26px;
+        font-size: 11px;
+    }
+
+    .match-team .team-name {
+        max-width: 60px;
+        font-size: 10px;
     }
 }
 
