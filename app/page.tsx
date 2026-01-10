@@ -291,8 +291,185 @@ export default function Home() {
 
       {/* Dashboard Principal (después de login) */}
       <div id="dashboard-page" className="page">
+        {/* Mobile Menu Overlay */}
+        <div className="mobile-menu-overlay" id="mobile-menu-overlay" onClick={() => {
+          if (typeof window !== 'undefined' && (window as any).closeMobileMenu) {
+            (window as any).closeMobileMenu()
+          }
+        }}></div>
+
+        {/* Mobile Menu Drawer */}
+        <div className="mobile-menu-drawer" id="mobile-menu-drawer">
+          {/* Header */}
+          <div className="mobile-menu-header">
+            <div className="mobile-menu-logo">
+              <i className="fas fa-futbol"></i>
+              <span>SuperLiga</span>
+            </div>
+            <button className="mobile-menu-close" onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).closeMobileMenu) {
+                (window as any).closeMobileMenu()
+              }
+            }}>
+              <i className="fas fa-times"></i>
+            </button>
+          </div>
+
+          {/* User Info */}
+          <div className="mobile-menu-user">
+            <div className="mobile-menu-avatar" id="mobile-menu-avatar">
+              <span id="mobile-avatar-initials">US</span>
+            </div>
+            <div className="mobile-menu-user-info">
+              <div className="mobile-menu-user-name" id="mobile-user-name">Usuario</div>
+              <div className="mobile-menu-user-email" id="mobile-user-email">usuario@email.com</div>
+            </div>
+          </div>
+
+          {/* Navigation Links */}
+          <nav className="mobile-menu-nav">
+            {/* Sección Principal */}
+            <div className="mobile-nav-section">
+              <div className="mobile-nav-section-title">Principal</div>
+              <a href="#" className="mobile-nav-link active" data-page="dashboard" onClick={(e) => {
+                e.preventDefault()
+                if (typeof window !== 'undefined' && (window as any).closeMobileMenu) {
+                  (window as any).closeMobileMenu()
+                }
+              }}>
+                <i className="fas fa-home"></i>
+                <span>Dashboard</span>
+              </a>
+              <a href="#" className="mobile-nav-link" data-page="pronosticos" onClick={(e) => {
+                e.preventDefault()
+                if (typeof window !== 'undefined' && (window as any).closeMobileMenu) {
+                  (window as any).closeMobileMenu()
+                }
+              }}>
+                <i className="fas fa-edit"></i>
+                <span>Mis Pronósticos</span>
+              </a>
+              <a href="#" className="mobile-nav-link" data-page="clasificaciones" onClick={(e) => {
+                e.preventDefault()
+                if (typeof window !== 'undefined' && (window as any).closeMobileMenu) {
+                  (window as any).closeMobileMenu()
+                }
+              }}>
+                <i className="fas fa-medal"></i>
+                <span>Clasificaciones</span>
+              </a>
+              <a href="#" className="mobile-nav-link" data-page="ligas" onClick={(e) => {
+                e.preventDefault()
+                if (typeof window !== 'undefined' && (window as any).closeMobileMenu) {
+                  (window as any).closeMobileMenu()
+                }
+              }}>
+                <i className="fas fa-users"></i>
+                <span>Mis Ligas</span>
+              </a>
+            </div>
+
+            {/* Sección Información */}
+            <div className="mobile-nav-section">
+              <div className="mobile-nav-section-title">Información</div>
+              <a href="#" className="mobile-nav-link" data-page="reglas" onClick={(e) => {
+                e.preventDefault()
+                if (typeof window !== 'undefined' && (window as any).closeMobileMenu) {
+                  (window as any).closeMobileMenu()
+                }
+              }}>
+                <i className="fas fa-book"></i>
+                <span>Reglas</span>
+              </a>
+              <a href="#" className="mobile-nav-link" data-page="noticias" onClick={(e) => {
+                e.preventDefault()
+                if (typeof window !== 'undefined' && (window as any).closeMobileMenu) {
+                  (window as any).closeMobileMenu()
+                }
+              }}>
+                <i className="fas fa-newspaper"></i>
+                <span>Noticias</span>
+              </a>
+              <a href="#" className="mobile-nav-link" data-page="estadisticas" onClick={(e) => {
+                e.preventDefault()
+                if (typeof window !== 'undefined' && (window as any).closeMobileMenu) {
+                  (window as any).closeMobileMenu()
+                }
+              }}>
+                <i className="fas fa-chart-bar"></i>
+                <span>Estadísticas</span>
+              </a>
+            </div>
+
+            {/* Admin (si aplica) */}
+            <div className="mobile-nav-section" id="mobile-admin-section" style={{display: 'none'}}>
+              <div className="mobile-nav-section-title">Administración</div>
+              <a href="#" className="mobile-nav-link admin-link" onClick={(e) => {
+                e.preventDefault()
+                if (typeof window !== 'undefined' && (window as any).showAdminDashboard) {
+                  (window as any).showAdminDashboard()
+                }
+                if (typeof window !== 'undefined' && (window as any).closeMobileMenu) {
+                  (window as any).closeMobileMenu()
+                }
+              }}>
+                <i className="fas fa-cog"></i>
+                <span>Panel Admin</span>
+              </a>
+            </div>
+          </nav>
+
+          {/* Competition Selector */}
+          <div className="mobile-menu-competition">
+            <div className="mobile-menu-competition-label">Competición</div>
+            <button className="mobile-menu-competition-btn" onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).changeCompetition) {
+                (window as any).changeCompetition()
+              }
+              if (typeof window !== 'undefined' && (window as any).closeMobileMenu) {
+                (window as any).closeMobileMenu()
+              }
+            }}>
+              <span id="mobile-competition-name">La Liga</span>
+              <i className="fas fa-chevron-right"></i>
+            </button>
+          </div>
+
+          {/* Footer with Progress & Logout */}
+          <div className="mobile-menu-footer">
+            <div className="mobile-menu-progress">
+              <div className="mobile-menu-progress-label">
+                <span>Pronósticos</span>
+                <span id="mobile-progress-percentage">0%</span>
+              </div>
+              <div className="mobile-menu-progress-bar">
+                <div className="mobile-menu-progress-fill" id="mobile-progress-fill" style={{width: '0%'}}></div>
+              </div>
+            </div>
+            <button className="mobile-menu-logout" onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).handleLogout) {
+                (window as any).handleLogout()
+              }
+            }}>
+              <i className="fas fa-sign-out-alt"></i>
+              <span>Cerrar Sesión</span>
+            </button>
+          </div>
+        </div>
+
         {/* Navegación */}
         <nav className="main-nav">
+          {/* Botón Hamburguesa (solo móvil) */}
+          <button className="nav-hamburger" id="nav-hamburger" onClick={() => {
+            if (typeof window !== 'undefined' && (window as any).toggleMobileMenu) {
+              (window as any).toggleMobileMenu()
+            }
+          }}>
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+
           <div className="nav-brand">
             <i className="fas fa-futbol"></i>
             <span>SuperLiga</span>
