@@ -3405,3 +3405,64 @@ if (document.readyState === 'loading') {
 } else {
     setupMobileMenuNavigation();
 }
+
+// ========================================
+// EXPORTAR FUNCIONES GLOBALES
+// ========================================
+
+// Autenticación
+window.showLoginModal = showLoginModal;
+window.showRegisterModal = showRegisterModal;
+window.showForgotPasswordModal = showForgotPasswordModal;
+window.showRulesModal = showRulesModal;
+window.closeModals = closeModals;
+window.handleLogin = handleLogin;
+window.handleRegister = handleRegister;
+window.handleForgotPassword = handleForgotPassword;
+window.handleLogout = handleLogout;
+
+// Navegación
+window.showLandingPage = showLandingPage;
+window.showDashboard = showDashboard;
+
+// Dashboard
+window.showDashboardLigaDetail = showDashboardLigaDetail;
+window.closeDashboardDetail = closeDashboardDetail;
+
+// Perfil
+window.showProfileModal = showProfileModal;
+window.updateProfile = updateProfile;
+
+// Ligas
+window.showCreateLigaModal = showCreateLigaModal;
+window.showJoinLigaModal = showJoinLigaModal;
+window.showLigaDetailModal = showLigaDetailModal;
+window.createLiga = createLiga;
+window.joinLiga = joinLiga;
+window.leaveLiga = leaveLiga;
+window.copyToClipboard = copyToClipboard;
+window.shareOnFacebook = shareOnFacebook;
+window.shareOnTwitter = shareOnTwitter;
+window.shareOnWhatsapp = shareOnWhatsapp;
+
+// Competiciones
+window.changeCompetition = changeCompetition;
+window.showCompetitionsListModal = showCompetitionsListModal;
+window.selectCompetition = selectCompetition;
+window.showCreateCompetitionModal = showCreateCompetitionModal;
+window.createCompetition = createCompetition;
+
+// Admin
+window.showAdminDashboard = showAdminDashboard;
+window.showAdminPanel = showAdminPanel;
+window.closeAdminPanel = closeAdminPanel;
+
+// Pronósticos
+window.savePredictions = savePredictions;
+window.changeJornada = changeJornada;
+window.resetPredictions = resetPredictions;
+
+// Utilidades
+window.showNotification = showNotification;
+
+console.log('✅ Todas las funciones exportadas a window');
