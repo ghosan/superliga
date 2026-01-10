@@ -600,6 +600,331 @@ body {
     color: var(--blue-400);
 }
 
+/* Menú hamburguesa (solo móvil) */
+.nav-hamburger {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    background: transparent;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    margin-right: 12px;
+    transition: var(--transition);
+}
+
+.nav-hamburger span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: white;
+    border-radius: 2px;
+    transition: all 0.3s ease;
+}
+
+.nav-hamburger:hover span {
+    background: var(--blue-400);
+}
+
+/* Animación hamburguesa a X */
+.nav-hamburger.active span:nth-child(1) {
+    transform: rotate(45deg) translate(6px, 6px);
+}
+
+.nav-hamburger.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.nav-hamburger.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(6px, -6px);
+}
+
+/* Mobile Menu Drawer */
+.mobile-menu-drawer {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 280px;
+    height: 100vh;
+    background: var(--slate-900);
+    box-shadow: 4px 0 12px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.mobile-menu-drawer.active {
+    left: 0;
+}
+
+.mobile-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: var(--slate-800);
+    border-bottom: 1px solid var(--slate-700);
+}
+
+.mobile-menu-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: white;
+    font-weight: 700;
+    font-size: 1.25rem;
+}
+
+.mobile-menu-logo i {
+    font-size: 1.5rem;
+    color: var(--blue-400);
+}
+
+.mobile-menu-close {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 8px;
+    transition: var(--transition);
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--rounded-lg);
+}
+
+.mobile-menu-close:hover {
+    background: var(--slate-700);
+    color: var(--blue-400);
+}
+
+.mobile-menu-user {
+    padding: 20px;
+    background: var(--slate-800);
+    border-bottom: 1px solid var(--slate-700);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.mobile-menu-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--rounded-full);
+    background: linear-gradient(135deg, var(--blue-500), var(--indigo-600));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 1.125rem;
+    flex-shrink: 0;
+}
+
+.mobile-menu-user-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.mobile-menu-user-name {
+    color: white;
+    font-weight: 600;
+    font-size: 0.938rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mobile-menu-user-email {
+    color: var(--slate-400);
+    font-size: 0.813rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mobile-menu-nav {
+    flex: 1;
+    padding: 8px 0;
+    overflow-y: auto;
+}
+
+.mobile-nav-section {
+    padding: 12px 0;
+}
+
+.mobile-nav-section-title {
+    color: var(--slate-500);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 8px 20px;
+    margin-bottom: 4px;
+}
+
+.mobile-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    color: var(--slate-300);
+    text-decoration: none;
+    transition: var(--transition);
+    font-size: 0.938rem;
+    font-weight: 500;
+    border-left: 3px solid transparent;
+}
+
+.mobile-nav-link i {
+    width: 24px;
+    font-size: 1.125rem;
+    color: var(--slate-400);
+    transition: var(--transition);
+}
+
+.mobile-nav-link:hover,
+.mobile-nav-link.active {
+    background: var(--slate-800);
+    color: white;
+    border-left-color: var(--blue-500);
+}
+
+.mobile-nav-link:hover i,
+.mobile-nav-link.active i {
+    color: var(--blue-400);
+}
+
+.mobile-nav-link.admin-link {
+    color: var(--amber-400);
+}
+
+.mobile-nav-link.admin-link i {
+    color: var(--amber-500);
+}
+
+.mobile-nav-link.admin-link:hover {
+    background: rgba(245, 158, 11, 0.1);
+    border-left-color: var(--amber-500);
+}
+
+.mobile-menu-competition {
+    padding: 16px 20px;
+    border-top: 1px solid var(--slate-700);
+    background: var(--slate-800);
+}
+
+.mobile-menu-competition-label {
+    color: var(--slate-500);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.mobile-menu-competition-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: var(--slate-700);
+    border: 1px solid var(--slate-600);
+    border-radius: var(--rounded-lg);
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.mobile-menu-competition-btn:hover {
+    background: var(--slate-600);
+    border-color: var(--blue-500);
+}
+
+.mobile-menu-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--slate-700);
+    background: var(--slate-800);
+}
+
+.mobile-menu-progress {
+    margin-bottom: 12px;
+}
+
+.mobile-menu-progress-label {
+    color: var(--slate-400);
+    font-size: 0.813rem;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.mobile-menu-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--slate-700);
+    border-radius: var(--rounded-full);
+    overflow: hidden;
+}
+
+.mobile-menu-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--emerald-500), var(--emerald-400));
+    border-radius: var(--rounded-full);
+    transition: width 0.3s ease;
+}
+
+.mobile-menu-logout {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px;
+    background: var(--slate-700);
+    border: 1px solid var(--slate-600);
+    border-radius: var(--rounded-lg);
+    color: var(--red-400);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.mobile-menu-logout:hover {
+    background: var(--red-600);
+    border-color: var(--red-500);
+    color: white;
+}
+
+/* Overlay */
+.mobile-menu-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.mobile-menu-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
 /* ========================================
    MODAL DE SELECCIÓN DE COMPETICIÓN
    ======================================== */
@@ -3525,50 +3850,37 @@ body {
 }
 
 @media (max-width: 768px) {
-    /* Nav */
+    /* Nav - Versión móvil moderna */
     .main-nav {
-        flex-wrap: wrap;
-        height: auto;
-        padding: 12px 16px;
-        gap: 12px;
+        height: 56px;
+        padding: 0 16px;
+        flex-wrap: nowrap;
+        gap: 8px;
     }
 
-    .nav-brand span {
-        display: none;
+    /* Mostrar botón hamburguesa */
+    .nav-hamburger {
+        display: flex;
     }
 
-    .nav-progress {
-        order: 2;
-        margin-right: 0;
+    /* Ocultar elementos del menú desktop en móvil */
+    .nav-links,
+    .nav-admin,
+    .nav-user,
+    .nav-progress,
+    .nav-competition-current {
+        display: none !important;
     }
 
-    .nav-user {
-        order: 3;
+    /* Brand más compacto en móvil */
+    .nav-brand {
+        margin-right: auto;
+        gap: 8px;
+        font-size: 1rem;
     }
 
-    .nav-user #user-name {
-        max-width: 80px;
-        font-size: 12px;
-    }
-
-    .nav-links {
-        width: 100%;
-        order: 4;
-        justify-content: center;
-        gap: 4px;
-        padding-top: 12px;
-        border-top: 1px solid var(--slate-700);
-    }
-
-    .nav-link {
-        flex: 1;
-        justify-content: center;
-        padding: 10px 8px;
-        font-size: 12px;
-    }
-
-    .nav-link span {
-        display: none;
+    .nav-brand i {
+        font-size: 1.125rem;
     }
 
     /* Sections */

@@ -3252,3 +3252,156 @@ function shareOnWhatsapp(code) {
     window.open(`https://wa.me/?text=${text}`, '_blank');
 }
 
+
+
+// ========================================
+// MENÚ MÓVIL
+// ========================================
+
+// Toggle menú móvil
+function toggleMobileMenu() {
+    const drawer = document.getElementById('mobile-menu-drawer');
+    const overlay = document.getElementById('mobile-menu-overlay');
+    const hamburger = document.getElementById('nav-hamburger');
+    
+    const isActive = drawer.classList.contains('active');
+    
+    if (isActive) {
+        closeMobileMenu();
+    } else {
+        openMobileMenu();
+    }
+}
+
+// Abrir menú móvil
+function openMobileMenu() {
+    const drawer = document.getElementById('mobile-menu-drawer');
+    const overlay = document.getElementById('mobile-menu-overlay');
+    const hamburger = document.getElementById('nav-hamburger');
+    
+    drawer.classList.add('active');
+    overlay.classList.add('active');
+    hamburger.classList.add('active');
+    
+    // Prevenir scroll del body
+    document.body.style.overflow = 'hidden';
+    
+    // Sincronizar datos del usuario
+    syncMobileMenuUserData();
+}
+
+// Cerrar menú móvil
+function closeMobileMenu() {
+    const drawer = document.getElementById('mobile-menu-drawer');
+    const overlay = document.getElementById('mobile-menu-overlay');
+    const hamburger = document.getElementById('nav-hamburger');
+    
+    drawer.classList.remove('active');
+    overlay.classList.remove('active');
+    hamburger.classList.remove('active');
+    
+    // Restaurar scroll del body
+    document.body.style.overflow = '';
+}
+
+// Sincronizar datos del usuario en el menú móvil
+function syncMobileMenuUserData() {
+    // Nombre del usuario
+    const userName = document.getElementById('user-name')?.textContent || 'Usuario';
+    const mobileUserName = document.getElementById('mobile-user-name');
+    if (mobileUserName) {
+        mobileUserName.textContent = userName;
+    }
+    
+    // Email del usuario (si está disponible)
+    if (window.currentUser?.email) {
+        const mobileUserEmail = document.getElementById('mobile-user-email');
+        if (mobileUserEmail) {
+            mobileUserEmail.textContent = window.currentUser.email;
+        }
+    }
+    
+    // Avatar del usuario
+    const navAvatarInitials = document.getElementById('nav-avatar-initials')?.textContent || 'US';
+    const mobileAvatarInitials = document.getElementById('mobile-avatar-initials');
+    if (mobileAvatarInitials) {
+        mobileAvatarInitials.textContent = navAvatarInitials;
+    }
+    
+    // Nombre de la competición
+    const competitionName = document.getElementById('nav-competition-name')?.textContent || 'La Liga';
+    const mobileCompetitionName = document.getElementById('mobile-competition-name');
+    if (mobileCompetitionName) {
+        mobileCompetitionName.textContent = competitionName;
+    }
+    
+    // Progreso de pronósticos
+    const progressPercentage = document.getElementById('progress-percentage')?.textContent || '0%';
+    const mobileProgressPercentage = document.getElementById('mobile-progress-percentage');
+    const mobileProgressFill = document.getElementById('mobile-progress-fill');
+    if (mobileProgressPercentage) {
+        mobileProgressPercentage.textContent = progressPercentage;
+    }
+    if (mobileProgressFill) {
+        const percentage = parseInt(progressPercentage) || 0;
+        mobileProgressFill.style.width = percentage + '%';
+    }
+    
+    // Mostrar/ocultar sección de admin
+    const adminBtn = document.getElementById('admin-header-btn');
+    const mobileAdminSection = document.getElementById('mobile-admin-section');
+    if (mobileAdminSection) {
+        if (adminBtn && adminBtn.style.display !== 'none') {
+            mobileAdminSection.style.display = 'block';
+        } else {
+            mobileAdminSection.style.display = 'none';
+        }
+    }
+}
+
+// Manejar navegación desde el menú móvil
+function setupMobileMenuNavigation() {
+    const mobileNavLinks = document.querySelectorAll('.mobile-nav-link[data-page]');
+    
+    mobileNavLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const page = this.getAttribute('data-page');
+            
+            // Actualizar clase active en los links del menú móvil
+            mobileNavLinks.forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+            
+            // También actualizar la navegación desktop
+            const desktopNavLinks = document.querySelectorAll('.nav-link[data-page]');
+            desktopNavLinks.forEach(l => l.classList.remove('active'));
+            const desktopLink = document.querySelector(\`.nav-link[data-page="\${page}"]\`);
+            if (desktopLink) {
+                desktopLink.classList.add('active');
+            }
+            
+            // Cerrar el menú móvil
+            closeMobileMenu();
+            
+            // Navegar a la página
+            const functionName = 'show' + page.charAt(0).toUpperCase() + page.slice(1) + 'Section';
+            if (typeof window[functionName] === 'function') {
+                window[functionName]();
+            }
+        });
+    });
+}
+
+// Exponer funciones globalmente
+window.toggleMobileMenu = toggleMobileMenu;
+window.openMobileMenu = openMobileMenu;
+window.closeMobileMenu = closeMobileMenu;
+window.syncMobileMenuUserData = syncMobileMenuUserData;
+
+// Inicializar navegación del menú móvil cuando el DOM esté listo
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupMobileMenuNavigation);
+} else {
+    setupMobileMenuNavigation();
+}
