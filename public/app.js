@@ -818,6 +818,49 @@ function updateAdminVisibility() {
     }
 }
 
+function updateNavAvatar(name, avatarUrl) {
+    const navAvatarInitials = document.getElementById('nav-avatar-initials');
+    const navAvatarImage = document.getElementById('nav-avatar-image');
+    
+    if (!navAvatarInitials) {
+        console.warn('⚠️ Elemento nav-avatar-initials no encontrado');
+        return;
+    }
+    
+    const initials = getInitials(name);
+    navAvatarInitials.textContent = initials;
+    
+    if (navAvatarImage) {
+        if (avatarUrl) {
+            navAvatarImage.src = avatarUrl;
+            navAvatarImage.style.display = 'block';
+            navAvatarInitials.style.display = 'none';
+        } else {
+            navAvatarImage.style.display = 'none';
+            navAvatarInitials.style.display = 'flex';
+        }
+    }
+}
+
+function getInitials(name) {
+    if (!name) return 'U';
+    const parts = name.trim().split(' ').filter(n => n.length > 0);
+    if (parts.length === 0) return 'U';
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function showProfileModal() {
+    closeModals();
+    // TODO: Implementar carga de datos del perfil
+    const profileModal = document.getElementById('profile-modal');
+    if (profileModal) {
+        profileModal.classList.add('active');
+    } else {
+        console.warn('⚠️ Modal de perfil no encontrado');
+    }
+}
+
 // ========================================
 // NAVEGACIÓN
 // ========================================
