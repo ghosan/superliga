@@ -1720,17 +1720,18 @@ O formato CSV:
           console.log('✅ Script de Supabase cargado');
           // Asegurar que el objeto supabase esté disponible globalmente
           if (typeof window !== 'undefined') {
+            const win = window as any;
             // El CDN puede exponer supabase de diferentes formas
-            if (window.supabasejs && typeof window.supabasejs.createClient === 'function') {
-              window.supabase = window.supabasejs;
-            } else if (window.supabase && typeof window.supabase.createClient !== 'function' && window.supabasejs) {
-              window.supabase = window.supabasejs;
+            if (win.supabasejs && typeof win.supabasejs.createClient === 'function') {
+              win.supabase = win.supabasejs;
+            } else if (win.supabase && typeof win.supabase.createClient !== 'function' && win.supabasejs) {
+              win.supabase = win.supabasejs;
             }
             console.log('Supabase disponible en window:', {
-              hasSupabase: !!window.supabase,
-              hasSupabasejs: !!window.supabasejs,
-              hasCreateClient: !!(window.supabase && typeof window.supabase.createClient === 'function'),
-              keys: Object.keys(window).filter(k => k.toLowerCase().includes('supabase'))
+              hasSupabase: !!win.supabase,
+              hasSupabasejs: !!win.supabasejs,
+              hasCreateClient: !!(win.supabase && typeof win.supabase.createClient === 'function'),
+              keys: Object.keys(win).filter((k) => k.toLowerCase().includes('supabase'))
             });
           }
         }}
