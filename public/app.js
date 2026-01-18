@@ -3376,7 +3376,7 @@ function setupMobileMenuNavigation() {
             // También actualizar la navegación desktop
             const desktopNavLinks = document.querySelectorAll('.nav-link[data-page]');
             desktopNavLinks.forEach(l => l.classList.remove('active'));
-            const desktopLink = document.querySelector(\`.nav-link[data-page="\${page}"]\`);
+            const desktopLink = document.querySelector(`.nav-link[data-page="${page}"]`);
             if (desktopLink) {
                 desktopLink.classList.add('active');
             }
