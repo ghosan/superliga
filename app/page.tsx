@@ -16,23 +16,99 @@ const safeCall = (fnName: string, ...args: any[]) => {
 // Componente principal de la aplicación
 export default function Home() {
   useEffect(() => {
-    // Asegurar que las funciones globales están disponibles en window
-    if (typeof window !== 'undefined') {
-      // Las funciones se cargarán desde los scripts externos
-      // Esperar a que app.js se cargue completamente
-      const checkScriptsLoaded = () => {
-        if ((window as any).showLoginModal && (window as any).showCreateLigaModal) {
-          console.log('✅ Scripts cargados correctamente')
-        } else {
-          console.warn('⚠️ Algunas funciones aún no están disponibles')
-        }
+    // Conectar event listeners nativos del DOM para evitar conflicto React/vanilla JS
+    // Esto se ejecuta después de que React renderiza y app.js se carga
+    
+    const setupNativeEventListeners = () => {
+      // Botón "Crear Liga" en Mis Ligas
+      const crearLigaBtn = document.querySelector('[data-action="crear-liga"]')
+      if (crearLigaBtn) {
+        crearLigaBtn.addEventListener('click', (e) => {
+          e.preventDefault()
+          if ((window as any).showCreateLigaModal) {
+            (window as any).showCreateLigaModal()
+          } else {
+            console.warn('⚠️ showCreateLigaModal no está disponible')
+          }
+        })
       }
-      
-      // Verificar inmediatamente
-      checkScriptsLoaded()
-      
-      // Verificar después de un breve delay (para cuando los scripts se carguen)
-      setTimeout(checkScriptsLoaded, 1000)
+
+      // Botón "Unirse a Liga" en Mis Ligas
+      const joinLigaBtn = document.querySelector('[data-action="join-liga"]')
+      if (joinLigaBtn) {
+        joinLigaBtn.addEventListener('click', (e) => {
+          e.preventDefault()
+          if ((window as any).showJoinLigaModal) {
+            (window as any).showJoinLigaModal()
+          } else {
+            console.warn('⚠️ showJoinLigaModal no está disponible')
+          }
+        })
+      }
+
+      // Botón "Unirse a Liga" en Mis Pronósticos (superior)
+      const joinLigaPronosticosBtn = document.querySelector('[data-action="join-liga-pronosticos"]')
+      if (joinLigaPronosticosBtn) {
+        joinLigaPronosticosBtn.addEventListener('click', (e) => {
+          e.preventDefault()
+          if ((window as any).showJoinLigaModal) {
+            (window as any).showJoinLigaModal()
+          } else {
+            console.warn('⚠️ showJoinLigaModal no está disponible')
+          }
+        })
+      }
+
+      // Botón "Guardar pronósticos"
+      const savePredictionsBtn = document.querySelector('[data-action="save-predictions"]')
+      if (savePredictionsBtn) {
+        savePredictionsBtn.addEventListener('click', (e) => {
+          e.preventDefault()
+          if ((window as any).savePredictions) {
+            (window as any).savePredictions()
+          } else {
+            console.warn('⚠️ savePredictions no está disponible')
+          }
+        })
+      }
+
+      // Avatar de usuario
+      const profileAvatarBtn = document.querySelector('[data-action="show-profile"]')
+      if (profileAvatarBtn) {
+        profileAvatarBtn.addEventListener('click', (e) => {
+          e.preventDefault()
+          if ((window as any).showProfileModal) {
+            (window as any).showProfileModal()
+          } else {
+            console.warn('⚠️ showProfileModal no está disponible')
+          }
+        })
+      }
+
+      // Selector de ligas en pronósticos
+      const ligaSelect = document.getElementById('pronosticos-liga-select')
+      if (ligaSelect) {
+        ligaSelect.addEventListener('change', () => {
+          if ((window as any).loadMatches) {
+            (window as any).loadMatches()
+          } else {
+            console.warn('⚠️ loadMatches no está disponible')
+          }
+        })
+      }
+    }
+
+    // Intentar configurar inmediatamente
+    setupNativeEventListeners()
+
+    // También intentar después de un delay (por si app.js aún no se ha cargado)
+    const timeoutId = setTimeout(() => {
+      setupNativeEventListeners()
+    }, 500)
+
+    // Limpiar timeout si el componente se desmonta
+    return () => {
+      clearTimeout(timeoutId)
     }
   }, [])
 
@@ -547,7 +623,7 @@ export default function Home() {
             </button>
           </div>
           <div className="nav-user">
-              <button className="user-profile-btn" onClick={(e) => {
+              <button className="user-profile-btn" data-action="show-profile" onClick={(e) => {
               e.preventDefault()
               safeCall('showProfileModal')
             }}>
@@ -753,7 +829,7 @@ export default function Home() {
                   </select>
                 </div>
                 <div className="pronosticos-actions">
-                  <button className="btn btn-secondary" onClick={(e) => {
+                  <button className="btn btn-secondary" data-action="join-liga-pronosticos" onClick={(e) => {
                     e.preventDefault()
                     safeCall('showJoinLigaModal')
                   }}>
@@ -787,7 +863,7 @@ export default function Home() {
             </div>
             
             <div className="save-predictions">
-              <button className="btn btn-primary btn-large" onClick={(e) => {
+              <button className="btn btn-primary btn-large" data-action="save-predictions" onClick={(e) => {
                 e.preventDefault()
                 safeCall('savePredictions')
               }}>
@@ -829,13 +905,13 @@ export default function Home() {
             <div className="section-header">
               <h2><i className="fas fa-users"></i> Mis Ligas</h2>
               <div className="liga-actions">
-                <button className="btn btn-primary" onClick={(e) => {
+                <button className="btn btn-primary" data-action="crear-liga" onClick={(e) => {
                   e.preventDefault()
                   safeCall('showCreateLigaModal')
                 }}>
                   <i className="fas fa-plus"></i> Crear Liga
                 </button>
-                <button className="btn btn-secondary" onClick={(e) => {
+                <button className="btn btn-secondary" data-action="join-liga" onClick={(e) => {
                   e.preventDefault()
                   safeCall('showJoinLigaModal')
                 }}>
