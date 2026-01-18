@@ -3268,8 +3268,7 @@ function createMatchCard(match) {
     // Si el partido es en el futuro: matchTimestamp > nowTimestamp, entonces NO está bloqueado
     // Si el partido es en el pasado: matchTimestamp < nowTimestamp, entonces SÍ está bloqueado
     const isLocked = (matchTimestamp - marginMs) <= nowTimestamp;
-    
-
+}
 
 // ========================================
 // MENÚ MÓVIL
@@ -3483,3 +3482,4 @@ window.resetPredictions = resetPredictions;
 window.showNotification = showNotification;
 
 console.log('✅ Todas las funciones exportadas a window');
+
