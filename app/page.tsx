@@ -3,12 +3,36 @@
 import Script from 'next/script'
 import { useEffect } from 'react'
 
+// Funciones helper para llamar a funciones de window de forma segura
+// Estas funciones verifican la existencia en tiempo de ejecución, no en render
+const safeCall = (fnName: string, ...args: any[]) => {
+  if (typeof window !== 'undefined' && (window as any)[fnName]) {
+    return (window as any)[fnName](...args)
+  } else {
+    console.warn(`⚠️ Función ${fnName} no está disponible aún. El script puede no haberse cargado.`)
+  }
+}
+
 // Componente principal de la aplicación
 export default function Home() {
   useEffect(() => {
     // Asegurar que las funciones globales están disponibles en window
     if (typeof window !== 'undefined') {
       // Las funciones se cargarán desde los scripts externos
+      // Esperar a que app.js se cargue completamente
+      const checkScriptsLoaded = () => {
+        if ((window as any).showLoginModal && (window as any).showCreateLigaModal) {
+          console.log('✅ Scripts cargados correctamente')
+        } else {
+          console.warn('⚠️ Algunas funciones aún no están disponibles')
+        }
+      }
+      
+      // Verificar inmediatamente
+      checkScriptsLoaded()
+      
+      // Verificar después de un breve delay (para cuando los scripts se carguen)
+      setTimeout(checkScriptsLoaded, 1000)
     }
   }, [])
 
@@ -523,10 +547,9 @@ export default function Home() {
             </button>
           </div>
           <div className="nav-user">
-            <button className="user-profile-btn" onClick={() => {
-              if (typeof window !== 'undefined' && (window as any).showProfileModal) {
-                (window as any).showProfileModal()
-              }
+              <button className="user-profile-btn" onClick={(e) => {
+              e.preventDefault()
+              safeCall('showProfileModal')
             }}>
               <div className="user-avatar-small" id="nav-avatar">
                 <span id="nav-avatar-initials">US</span>
@@ -723,35 +746,30 @@ export default function Home() {
                     <i className="fas fa-users"></i> Liga:
                   </label>
                   <select id="pronosticos-liga-select" onChange={() => {
-                    if (typeof window !== 'undefined' && (window as any).loadMatches) {
-                      (window as any).loadMatches()
-                    }
+                    safeCall('loadMatches')
                   }}>
                     <option value="">Selecciona una liga</option>
                     {/* Se cargan dinámicamente */}
                   </select>
                 </div>
                 <div className="pronosticos-actions">
-                  <button className="btn btn-secondary" onClick={() => {
-                    if (typeof window !== 'undefined' && (window as any).showJoinLigaModal) {
-                      (window as any).showJoinLigaModal()
-                    }
+                  <button className="btn btn-secondary" onClick={(e) => {
+                    e.preventDefault()
+                    safeCall('showJoinLigaModal')
                   }}>
                     <i className="fas fa-sign-in-alt"></i> Unirse a Liga
                   </button>
                   <div className="jornada-selector">
-                    <button className="btn btn-small" onClick={() => {
-                      if (typeof window !== 'undefined' && (window as any).changeJornada) {
-                        (window as any).changeJornada(-1)
-                      }
+                    <button className="btn btn-small" onClick={(e) => {
+                      e.preventDefault()
+                      safeCall('changeJornada', -1)
                     }}>
                       <i className="fas fa-chevron-left"></i>
                     </button>
                     <span id="current-jornada">Jornada 1</span>
-                    <button className="btn btn-small" onClick={() => {
-                      if (typeof window !== 'undefined' && (window as any).changeJornada) {
-                        (window as any).changeJornada(1)
-                      }
+                    <button className="btn btn-small" onClick={(e) => {
+                      e.preventDefault()
+                      safeCall('changeJornada', 1)
                     }}>
                       <i className="fas fa-chevron-right"></i>
                     </button>
@@ -769,10 +787,9 @@ export default function Home() {
             </div>
             
             <div className="save-predictions">
-              <button className="btn btn-primary btn-large" onClick={() => {
-                if (typeof window !== 'undefined' && (window as any).savePredictions) {
-                  (window as any).savePredictions()
-                }
+              <button className="btn btn-primary btn-large" onClick={(e) => {
+                e.preventDefault()
+                safeCall('savePredictions')
               }}>
                 Guardar todos los pronósticos
               </button>
@@ -812,17 +829,15 @@ export default function Home() {
             <div className="section-header">
               <h2><i className="fas fa-users"></i> Mis Ligas</h2>
               <div className="liga-actions">
-                <button className="btn btn-primary" onClick={() => {
-                  if (typeof window !== 'undefined' && (window as any).showCreateLigaModal) {
-                    (window as any).showCreateLigaModal()
-                  }
+                <button className="btn btn-primary" onClick={(e) => {
+                  e.preventDefault()
+                  safeCall('showCreateLigaModal')
                 }}>
                   <i className="fas fa-plus"></i> Crear Liga
                 </button>
-                <button className="btn btn-secondary" onClick={() => {
-                  if (typeof window !== 'undefined' && (window as any).showJoinLigaModal) {
-                    (window as any).showJoinLigaModal()
-                  }
+                <button className="btn btn-secondary" onClick={(e) => {
+                  e.preventDefault()
+                  safeCall('showJoinLigaModal')
                 }}>
                   <i className="fas fa-sign-in-alt"></i> Unirse a Liga
                 </button>

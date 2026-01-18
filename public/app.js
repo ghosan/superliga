@@ -4275,6 +4275,7 @@ window.closeAdminDashboard = closeAdminDashboard;
 window.openAdminTab = openAdminTab;
 
 // Pronósticos
+window.loadMatches = loadMatches;
 window.savePredictions = savePredictions;
 window.changeJornada = changeJornada;
 window.resetPredictions = resetPredictions;
