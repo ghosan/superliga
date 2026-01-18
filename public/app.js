@@ -862,6 +862,108 @@ function showProfileModal() {
 }
 
 // ========================================
+// ADMINISTRACIÓN
+// ========================================
+function showAdminDashboard() {
+    if (!isAdmin) {
+        showNotification('No tienes permisos de administrador', 'error');
+        return;
+    }
+    
+    closeModals();
+    const adminDashboardModal = document.getElementById('admin-dashboard-modal');
+    if (adminDashboardModal) {
+        adminDashboardModal.classList.add('active');
+        adminDashboardModal.style.display = 'flex';
+    } else {
+        console.warn('⚠️ Modal de admin dashboard no encontrado');
+    }
+}
+
+function closeAdminDashboard() {
+    const adminDashboardModal = document.getElementById('admin-dashboard-modal');
+    if (adminDashboardModal) {
+        adminDashboardModal.classList.remove('active');
+        adminDashboardModal.style.display = 'none';
+    }
+}
+
+function showAdminPanel(tab = 'partidos') {
+    if (!isAdmin) {
+        showNotification('No tienes permisos de administrador', 'error');
+        return;
+    }
+    
+    closeModals();
+    const adminPanelModal = document.getElementById('admin-panel-modal');
+    if (adminPanelModal) {
+        adminPanelModal.classList.add('active');
+        adminPanelModal.style.display = 'flex';
+        
+        // Activar el tab específico
+        if (tab) {
+            openAdminTab(tab);
+        }
+    } else {
+        console.warn('⚠️ Modal de admin panel no encontrado');
+    }
+}
+
+function closeAdminPanel() {
+    const adminPanelModal = document.getElementById('admin-panel-modal');
+    if (adminPanelModal) {
+        adminPanelModal.classList.remove('active');
+        adminPanelModal.style.display = 'none';
+    }
+}
+
+function openAdminTab(tab) {
+    // Actualizar botones de tabs
+    document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.adminTab === tab) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Actualizar contenido de tabs
+    document.querySelectorAll('.admin-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    const tabContent = document.getElementById(`${tab}-admin-tab`);
+    if (tabContent) {
+        tabContent.classList.add('active');
+    }
+    
+    // Cargar datos según el tab
+    if (tab === 'resultados') {
+        // loadMatchesForResults();
+    } else if (tab === 'usuarios') {
+        // loadUsersList();
+    }
+}
+
+function setupAdminTabs() {
+    document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.adminTab;
+            openAdminTab(tab);
+        });
+    });
+}
+
+function loadAdminData() {
+    if (!isAdmin) {
+        showNotification('No tienes permisos de administrador', 'error');
+        return;
+    }
+    
+    console.log('⚙️ Cargando datos de administración...');
+    // Aquí se cargarían los datos necesarios para el panel de admin
+}
+
+// ========================================
 // NAVEGACIÓN
 // ========================================
 function showLandingPage() {
@@ -3530,6 +3632,8 @@ window.createCompetition = createCompetition;
 window.showAdminDashboard = showAdminDashboard;
 window.showAdminPanel = showAdminPanel;
 window.closeAdminPanel = closeAdminPanel;
+window.closeAdminDashboard = closeAdminDashboard;
+window.openAdminTab = openAdminTab;
 
 // Pronósticos
 window.savePredictions = savePredictions;
