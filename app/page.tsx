@@ -1712,26 +1712,25 @@ O formato CSV:
       </div>
 
       {/* Scripts - Cargar en orden: Supabase -> config -> app */}
-      {/* Usar unpkg que tiene mejor soporte para builds UMD */}
+      {/* Usar jsdelivr que está permitido en la CSP */}
       <Script 
-        src="https://unpkg.com/@supabase/supabase-js@2" 
+        src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" 
         strategy="afterInteractive"
         onLoad={() => {
           console.log('✅ Script de Supabase cargado');
           // Asegurar que el objeto supabase esté disponible globalmente
           if (typeof window !== 'undefined') {
             const win = window as any;
-            // El CDN puede exponer supabase de diferentes formas
-            if (win.supabasejs && typeof win.supabasejs.createClient === 'function') {
-              win.supabase = win.supabasejs;
-            } else if (win.supabase && typeof win.supabase.createClient !== 'function' && win.supabasejs) {
+            // El CDN UMD puede exponer supabase de diferentes formas
+            if (win.supabase && typeof win.supabase.createClient === 'function') {
+              // Ya está correcto
+            } else if (win.supabasejs && typeof win.supabasejs.createClient === 'function') {
               win.supabase = win.supabasejs;
             }
             console.log('Supabase disponible en window:', {
               hasSupabase: !!win.supabase,
               hasSupabasejs: !!win.supabasejs,
-              hasCreateClient: !!(win.supabase && typeof win.supabase.createClient === 'function'),
-              keys: Object.keys(win).filter((k) => k.toLowerCase().includes('supabase'))
+              hasCreateClient: !!(win.supabase && typeof win.supabase.createClient === 'function')
             });
           }
         }}

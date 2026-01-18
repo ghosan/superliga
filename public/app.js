@@ -219,6 +219,23 @@ function sanitizeString(str) {
     return str.trim().slice(0, 500); // Limitar longitud
 }
 
+function showNotification(message, type = 'info') {
+    const notification = document.getElementById('notification');
+    const messageEl = document.getElementById('notification-message');
+    
+    if (!notification || !messageEl) {
+        console.warn('⚠️ Elemento de notificación no encontrado');
+        return;
+    }
+    
+    messageEl.textContent = message;
+    notification.className = `notification show ${type}`;
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+    }, 3000);
+}
+
 async function handleLogin(event) {
     event.preventDefault();
     
