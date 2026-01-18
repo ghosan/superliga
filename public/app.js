@@ -3431,6 +3431,533 @@ function createMatchCard(match) {
 }
 
 // ========================================
+// PRONÓSTICOS - GUARDAR
+// ========================================
+async function savePredictions() {
+    console.log('💾 Guardando pronósticos...');
+    
+    if (!currentUser) {
+        showNotification('Debes iniciar sesión', 'error');
+        return;
+    }
+
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        showNotification('Error: No se pudo conectar con el servidor', 'error');
+        return;
+    }
+
+    // Obtener liga seleccionada
+    const ligaSelect = document.getElementById('pronosticos-liga-select');
+    if (!ligaSelect || !ligaSelect.value) {
+        showNotification('Debes seleccionar una liga primero', 'error');
+        return;
+    }
+
+    const ligaId = parseInt(ligaSelect.value);
+    console.log('💾 Guardando para liga:', ligaId);
+
+    // Buscar filas de partidos
+    const matchRows = document.querySelectorAll('.match-row:not(.locked)');
+    console.log('Filas encontradas:', matchRows.length);
+    
+    const predictions = [];
+
+    matchRows.forEach(row => {
+        const matchId = row.dataset.matchId;
+        const homeSelect = document.getElementById(`home-${matchId}`);
+        const awaySelect = document.getElementById(`away-${matchId}`);
+
+        console.log(`Partido ${matchId}:`, homeSelect?.value, '-', awaySelect?.value);
+
+        if (homeSelect && awaySelect && homeSelect.value !== '' && awaySelect.value !== '') {
+            predictions.push({
+                user_id: currentUser.id,
+                match_id: parseInt(matchId),
+                liga_id: ligaId,
+                home_prediction: parseInt(homeSelect.value),
+                away_prediction: parseInt(awaySelect.value)
+            });
+        }
+    });
+
+    console.log('Pronósticos a guardar:', predictions.length);
+
+    if (predictions.length === 0) {
+        showNotification('No hay pronósticos para guardar', 'warning');
+        return;
+    }
+
+    try {
+        console.log('📤 Enviando a Supabase:', predictions);
+        
+        // Upsert predictions (intentar con liga_id, si falla por columna no existente, intentar sin ella)
+        let { data: savedData, error } = await supabase
+            .from('predictions')
+            .upsert(predictions, { 
+                onConflict: 'user_id,match_id,liga_id',
+                ignoreDuplicates: false 
+            })
+            .select();
+
+        // Si falla porque la columna liga_id no existe, intentar sin ella (compatibilidad)
+        if (error && error.message && error.message.includes('liga_id')) {
+            console.warn('⚠️ Columna liga_id no existe, guardando sin ella (compatibilidad)');
+            // Remover liga_id de las predicciones
+            const predictionsWithoutLiga = predictions.map(p => {
+                const { liga_id, ...rest } = p;
+                return rest;
+            });
+            
+            const retry = await supabase
+                .from('predictions')
+                .upsert(predictionsWithoutLiga, { 
+                    onConflict: 'user_id,match_id',
+                    ignoreDuplicates: false 
+                })
+                .select();
+            
+            savedData = retry.data;
+            error = retry.error;
+        }
+
+        console.log('📦 Respuesta de Supabase:', { savedData, error });
+
+        if (error) throw error;
+
+        showNotification(`¡${predictions.length} pronósticos guardados!`, 'success');
+        
+        // Recargar predicciones y actualizar progreso
+        await loadUserPredictions(ligaId);
+        
+        // Quitar indicador de cambios
+        matchRows.forEach(row => {
+            row.style.background = '';
+        });
+    } catch (error) {
+        console.error('Error guardando predicciones:', error);
+        showNotification('Error al guardar pronósticos', 'error');
+    }
+}
+
+async function resetPredictions() {
+    if (!currentUser) {
+        showNotification('Debes iniciar sesión', 'error');
+        return;
+    }
+
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        return;
+    }
+
+    const ligaSelect = document.getElementById('pronosticos-liga-select');
+    if (!ligaSelect || !ligaSelect.value) {
+        showNotification('Debes seleccionar una liga primero', 'error');
+        return;
+    }
+
+    const ligaId = parseInt(ligaSelect.value);
+
+    if (!confirm('¿Estás seguro de que quieres eliminar todos tus pronósticos de esta liga?')) {
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('predictions')
+            .delete()
+            .eq('user_id', currentUser.id)
+            .eq('liga_id', ligaId);
+
+        if (error) throw error;
+
+        showNotification('Pronósticos eliminados', 'success');
+        
+        // Recargar partidos para limpiar los selectores
+        await loadMatches();
+    } catch (error) {
+        console.error('Error eliminando pronósticos:', error);
+        showNotification('Error al eliminar pronósticos', 'error');
+    }
+}
+
+// ========================================
+// LIGAS
+// ========================================
+function generateLigaCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+}
+
+function showCreateLigaModal() {
+    closeModals();
+    const modal = document.getElementById('create-liga-modal');
+    if (modal) {
+        modal.classList.add('active');
+    }
+}
+
+function showJoinLigaModal() {
+    closeModals();
+    const modal = document.getElementById('join-liga-modal');
+    if (modal) {
+        modal.classList.add('active');
+    }
+}
+
+function showLigaDetailModal() {
+    closeModals();
+    const modal = document.getElementById('liga-detail-modal');
+    if (modal) {
+        modal.classList.add('active');
+    }
+}
+
+async function createLiga(event) {
+    event.preventDefault();
+
+    if (!currentUser) {
+        showNotification('Debes iniciar sesión', 'error');
+        return;
+    }
+
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        showNotification('Error: No se pudo conectar con el servidor', 'error');
+        return;
+    }
+
+    const nameInput = document.getElementById('liga-name');
+    const descriptionInput = document.getElementById('liga-description');
+    
+    if (!nameInput) {
+        showNotification('Error: No se encontró el formulario', 'error');
+        return;
+    }
+
+    const name = nameInput.value.trim();
+    const description = descriptionInput ? descriptionInput.value.trim() : '';
+    const code = generateLigaCode();
+
+    if (!name || name.length < 2) {
+        showNotification('El nombre de la liga debe tener al menos 2 caracteres', 'error');
+        return;
+    }
+
+    try {
+        // Crear liga
+        const { data: liga, error: ligaError } = await supabase
+            .from('ligas')
+            .insert({
+                name,
+                description,
+                code,
+                created_by: currentUser.id
+            })
+            .select()
+            .single();
+
+        if (ligaError) throw ligaError;
+
+        // Añadir creador como miembro
+        const { error: memberError } = await supabase
+            .from('liga_members')
+            .insert({
+                liga_id: liga.id,
+                user_id: currentUser.id
+            });
+
+        if (memberError) {
+            console.error('Error añadiendo a liga:', memberError);
+            // Continuar aunque falle, la liga ya está creada
+        }
+
+        showNotification(`¡Liga creada! Tu código es: ${code}`, 'success');
+        closeModals();
+        
+        const form = document.getElementById('create-liga-form');
+        if (form) {
+            form.reset();
+        }
+        
+        // Recargar ligas si existe la función
+        if (typeof loadUserLigas === 'function') {
+            await loadUserLigas();
+        }
+    } catch (error) {
+        console.error('Error creando liga:', error);
+        showNotification('Error al crear la liga', 'error');
+    }
+}
+
+async function joinLiga(event) {
+    event.preventDefault();
+
+    if (!currentUser) {
+        showNotification('Debes iniciar sesión', 'error');
+        return;
+    }
+
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        showNotification('Error: No se pudo conectar con el servidor', 'error');
+        return;
+    }
+
+    const codeInput = document.getElementById('liga-code');
+    if (!codeInput) {
+        showNotification('Error: No se encontró el formulario', 'error');
+        return;
+    }
+
+    const code = codeInput.value.toUpperCase().trim();
+
+    if (!code || code.length !== 6) {
+        showNotification('El código de liga debe tener 6 caracteres', 'error');
+        return;
+    }
+
+    try {
+        // Buscar liga por código
+        const { data: liga, error: ligaError } = await supabase
+            .from('ligas')
+            .select('id, name')
+            .eq('code', code)
+            .single();
+
+        if (ligaError || !liga) {
+            showNotification('Código de liga no válido', 'error');
+            return;
+        }
+
+        // Verificar si ya es miembro
+        const { data: existing } = await supabase
+            .from('liga_members')
+            .select('id')
+            .eq('liga_id', liga.id)
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+
+        if (existing) {
+            showNotification('Ya eres miembro de esta liga', 'warning');
+            return;
+        }
+
+        // Unirse a la liga
+        const { error: joinError } = await supabase
+            .from('liga_members')
+            .insert({
+                liga_id: liga.id,
+                user_id: currentUser.id
+            });
+
+        if (joinError) throw joinError;
+
+        showNotification(`¡Te has unido a la liga "${liga.name || ''}"!`, 'success');
+        closeModals();
+        
+        const form = document.getElementById('join-liga-form');
+        if (form) {
+            form.reset();
+        }
+        
+        // Recargar ligas si existe la función
+        if (typeof loadUserLigas === 'function') {
+            await loadUserLigas();
+        }
+    } catch (error) {
+        console.error('Error uniéndose a liga:', error);
+        showNotification('Error al unirse a la liga', 'error');
+    }
+}
+
+async function leaveLiga(ligaId) {
+    if (!currentUser) {
+        showNotification('Debes iniciar sesión', 'error');
+        return;
+    }
+
+    if (!confirm('¿Estás seguro de que quieres abandonar esta liga?')) {
+        return;
+    }
+
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        showNotification('Error: No se pudo conectar con el servidor', 'error');
+        return;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('liga_members')
+            .delete()
+            .eq('liga_id', ligaId)
+            .eq('user_id', currentUser.id);
+
+        if (error) throw error;
+
+        showNotification('Has abandonado la liga', 'success');
+        
+        // Recargar ligas si existe la función
+        if (typeof loadUserLigas === 'function') {
+            await loadUserLigas();
+        }
+    } catch (error) {
+        console.error('Error abandonando liga:', error);
+        showNotification('Error al abandonar la liga', 'error');
+    }
+}
+
+async function updateProfile(event) {
+    event.preventDefault();
+    
+    if (!currentUser) {
+        showNotification('Debes iniciar sesión', 'error');
+        return;
+    }
+
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        showNotification('Error: No se pudo conectar con el servidor', 'error');
+        return;
+    }
+
+    const nameInput = document.getElementById('profile-name');
+    if (!nameInput) {
+        showNotification('Error: No se encontró el formulario', 'error');
+        return;
+    }
+
+    const name = nameInput.value.trim();
+
+    if (!name || name.length < 2) {
+        showNotification('El nombre debe tener al menos 2 caracteres', 'error');
+        return;
+    }
+
+    try {
+        // Actualizar usuario en la base de datos
+        let { error } = await supabase
+            .from('users')
+            .update({ name: name })
+            .eq('id', currentUser.id);
+
+        // Si falla por avatar_url, intentar solo con name (compatibilidad)
+        if (error && error.message && error.message.includes('avatar_url')) {
+            console.log('⚠️ Columna avatar_url no existe, actualizando solo nombre');
+            const retry = await supabase
+                .from('users')
+                .update({ name: name })
+                .eq('id', currentUser.id);
+            error = retry.error;
+        }
+
+        if (error) throw error;
+
+        // Actualizar UI
+        const userNameEl = document.getElementById('user-name');
+        if (userNameEl) {
+            userNameEl.textContent = name;
+        }
+        updateNavAvatar(name, null);
+        
+        // Recargar perfil
+        await loadUserProfile();
+        
+        showNotification('Perfil actualizado correctamente', 'success');
+        closeModals();
+    } catch (error) {
+        console.error('Error guardando perfil:', error);
+        showNotification('Error al guardar el perfil', 'error');
+    }
+}
+
+// ========================================
+// PROGRESO
+// ========================================
+async function loadProgress() {
+    if (!currentUser) return;
+
+    const progressEl = document.getElementById('progress-percentage');
+    if (!progressEl) {
+        console.warn('⚠️ Elemento progress-percentage no encontrado');
+        return;
+    }
+
+    const supabase = window.supabase || window.supabaseClient;
+    if (!supabase || !supabase.from) {
+        return;
+    }
+
+    try {
+        // Verificar que activeJornada esté inicializado
+        if (!activeJornada || activeJornada < 1) {
+            console.warn('⚠️ activeJornada no inicializado, usando currentJornada');
+            activeJornada = currentJornada || 1;
+        }
+
+        // Obtener total de partidos de la jornada activa
+        let query = supabase
+            .from('matches')
+            .select('id')
+            .eq('jornada', activeJornada);
+        
+        // Filtrar por competición si existe
+        try {
+            if (currentCompetitionId) {
+                query = query.eq('competition_id', currentCompetitionId);
+            }
+        } catch (e) {
+            // Si no existe la columna, continuar sin filtrar
+        }
+
+        const { data: matches, error: matchError } = await query;
+
+        if (matchError) {
+            console.warn('⚠️ Error obteniendo partidos para progreso:', matchError);
+            progressEl.textContent = '0%';
+            return;
+        }
+
+        const matchIds = matches?.map(m => m.id) || [];
+        if (matchIds.length === 0) {
+            progressEl.textContent = '0%';
+            return;
+        }
+
+        // Obtener predicciones del usuario para esa jornada
+        const { data: predictions, error: predError } = await supabase
+            .from('predictions')
+            .select('match_id')
+            .eq('user_id', currentUser.id)
+            .in('match_id', matchIds);
+
+        if (predError) {
+            console.warn('⚠️ Error obteniendo predicciones para progreso:', predError);
+            progressEl.textContent = '0%';
+            return;
+        }
+
+        const totalMatches = matchIds.length;
+        const predictedMatches = predictions?.length || 0;
+        const percentage = totalMatches > 0 ? Math.round((predictedMatches / totalMatches) * 100) : 0;
+
+        progressEl.textContent = `${percentage}%`;
+    } catch (error) {
+        console.error('❌ Error calculando progreso:', error);
+        const progressEl = document.getElementById('progress-percentage');
+        if (progressEl) {
+            progressEl.textContent = '0%';
+        }
+    }
+}
+
+// ========================================
 // MENÚ MÓVIL
 // ========================================
 
