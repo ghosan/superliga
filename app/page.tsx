@@ -17,72 +17,98 @@ const safeCall = (fnName: string, ...args: any[]) => {
 export default function Home() {
   useEffect(() => {
     // Conectar event listeners nativos del DOM para evitar conflicto React/vanilla JS
-    // Esto se ejecuta después de que React renderiza y app.js se carga
+    // Usamos IDs en lugar de data-attributes para mayor compatibilidad con Next.js
     
     const setupNativeEventListeners = () => {
       // Botón "Crear Liga" en Mis Ligas
-      const crearLigaBtn = document.querySelector('[data-action="crear-liga"]')
+      const crearLigaBtn = document.getElementById('btn-crear-liga')
       if (crearLigaBtn) {
-        crearLigaBtn.addEventListener('click', (e) => {
-          e.preventDefault()
-          if ((window as any).showCreateLigaModal) {
-            (window as any).showCreateLigaModal()
-          } else {
-            console.warn('⚠️ showCreateLigaModal no está disponible')
-          }
-        })
+        // Remover listener anterior si existe
+        crearLigaBtn.replaceWith(crearLigaBtn.cloneNode(true))
+        const newBtn = document.getElementById('btn-crear-liga')
+        if (newBtn) {
+          newBtn.addEventListener('click', (e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            if ((window as any).showCreateLigaModal) {
+              (window as any).showCreateLigaModal()
+            } else {
+              console.warn('⚠️ showCreateLigaModal no está disponible')
+            }
+          })
+        }
       }
 
       // Botón "Unirse a Liga" en Mis Ligas
-      const joinLigaBtn = document.querySelector('[data-action="join-liga"]')
+      const joinLigaBtn = document.getElementById('btn-join-liga')
       if (joinLigaBtn) {
-        joinLigaBtn.addEventListener('click', (e) => {
-          e.preventDefault()
-          if ((window as any).showJoinLigaModal) {
-            (window as any).showJoinLigaModal()
-          } else {
-            console.warn('⚠️ showJoinLigaModal no está disponible')
-          }
-        })
+        joinLigaBtn.replaceWith(joinLigaBtn.cloneNode(true))
+        const newBtn = document.getElementById('btn-join-liga')
+        if (newBtn) {
+          newBtn.addEventListener('click', (e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            if ((window as any).showJoinLigaModal) {
+              (window as any).showJoinLigaModal()
+            } else {
+              console.warn('⚠️ showJoinLigaModal no está disponible')
+            }
+          })
+        }
       }
 
       // Botón "Unirse a Liga" en Mis Pronósticos (superior)
-      const joinLigaPronosticosBtn = document.querySelector('[data-action="join-liga-pronosticos"]')
+      const joinLigaPronosticosBtn = document.getElementById('btn-join-liga-pronosticos')
       if (joinLigaPronosticosBtn) {
-        joinLigaPronosticosBtn.addEventListener('click', (e) => {
-          e.preventDefault()
-          if ((window as any).showJoinLigaModal) {
-            (window as any).showJoinLigaModal()
-          } else {
-            console.warn('⚠️ showJoinLigaModal no está disponible')
-          }
-        })
+        joinLigaPronosticosBtn.replaceWith(joinLigaPronosticosBtn.cloneNode(true))
+        const newBtn = document.getElementById('btn-join-liga-pronosticos')
+        if (newBtn) {
+          newBtn.addEventListener('click', (e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            if ((window as any).showJoinLigaModal) {
+              (window as any).showJoinLigaModal()
+            } else {
+              console.warn('⚠️ showJoinLigaModal no está disponible')
+            }
+          })
+        }
       }
 
       // Botón "Guardar pronósticos"
-      const savePredictionsBtn = document.querySelector('[data-action="save-predictions"]')
+      const savePredictionsBtn = document.getElementById('btn-save-predictions')
       if (savePredictionsBtn) {
-        savePredictionsBtn.addEventListener('click', (e) => {
-          e.preventDefault()
-          if ((window as any).savePredictions) {
-            (window as any).savePredictions()
-          } else {
-            console.warn('⚠️ savePredictions no está disponible')
-          }
-        })
+        savePredictionsBtn.replaceWith(savePredictionsBtn.cloneNode(true))
+        const newBtn = document.getElementById('btn-save-predictions')
+        if (newBtn) {
+          newBtn.addEventListener('click', (e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            if ((window as any).savePredictions) {
+              (window as any).savePredictions()
+            } else {
+              console.warn('⚠️ savePredictions no está disponible')
+            }
+          })
+        }
       }
 
       // Avatar de usuario
-      const profileAvatarBtn = document.querySelector('[data-action="show-profile"]')
+      const profileAvatarBtn = document.getElementById('btn-show-profile')
       if (profileAvatarBtn) {
-        profileAvatarBtn.addEventListener('click', (e) => {
-          e.preventDefault()
-          if ((window as any).showProfileModal) {
-            (window as any).showProfileModal()
-          } else {
-            console.warn('⚠️ showProfileModal no está disponible')
-          }
-        })
+        profileAvatarBtn.replaceWith(profileAvatarBtn.cloneNode(true))
+        const newBtn = document.getElementById('btn-show-profile')
+        if (newBtn) {
+          newBtn.addEventListener('click', (e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            if ((window as any).showProfileModal) {
+              (window as any).showProfileModal()
+            } else {
+              console.warn('⚠️ showProfileModal no está disponible')
+            }
+          })
+        }
       }
 
       // Selector de ligas en pronósticos
@@ -101,14 +127,16 @@ export default function Home() {
     // Intentar configurar inmediatamente
     setupNativeEventListeners()
 
-    // También intentar después de un delay (por si app.js aún no se ha cargado)
-    const timeoutId = setTimeout(() => {
-      setupNativeEventListeners()
-    }, 500)
+    // También intentar después de delays progresivos (por si app.js aún no se ha cargado)
+    const timeout1 = setTimeout(setupNativeEventListeners, 500)
+    const timeout2 = setTimeout(setupNativeEventListeners, 1500)
+    const timeout3 = setTimeout(setupNativeEventListeners, 3000)
 
-    // Limpiar timeout si el componente se desmonta
+    // Limpiar timeouts si el componente se desmonta
     return () => {
-      clearTimeout(timeoutId)
+      clearTimeout(timeout1)
+      clearTimeout(timeout2)
+      clearTimeout(timeout3)
     }
   }, [])
 
@@ -623,7 +651,7 @@ export default function Home() {
             </button>
           </div>
           <div className="nav-user">
-              <button className="user-profile-btn" data-action="show-profile" onClick={(e) => {
+              <button id="btn-show-profile" className="user-profile-btn" onClick={(e) => {
               e.preventDefault()
               safeCall('showProfileModal')
             }}>
@@ -829,7 +857,7 @@ export default function Home() {
                   </select>
                 </div>
                 <div className="pronosticos-actions">
-                  <button className="btn btn-secondary" data-action="join-liga-pronosticos" onClick={(e) => {
+                  <button id="btn-join-liga-pronosticos" className="btn btn-secondary" onClick={(e) => {
                     e.preventDefault()
                     safeCall('showJoinLigaModal')
                   }}>
@@ -863,7 +891,7 @@ export default function Home() {
             </div>
             
             <div className="save-predictions">
-              <button className="btn btn-primary btn-large" data-action="save-predictions" onClick={(e) => {
+              <button id="btn-save-predictions" className="btn btn-primary btn-large" onClick={(e) => {
                 e.preventDefault()
                 safeCall('savePredictions')
               }}>
@@ -905,13 +933,13 @@ export default function Home() {
             <div className="section-header">
               <h2><i className="fas fa-users"></i> Mis Ligas</h2>
               <div className="liga-actions">
-                <button className="btn btn-primary" data-action="crear-liga" onClick={(e) => {
+                <button id="btn-crear-liga" className="btn btn-primary" onClick={(e) => {
                   e.preventDefault()
                   safeCall('showCreateLigaModal')
                 }}>
                   <i className="fas fa-plus"></i> Crear Liga
                 </button>
-                <button className="btn btn-secondary" data-action="join-liga" onClick={(e) => {
+                <button id="btn-join-liga" className="btn btn-secondary" onClick={(e) => {
                   e.preventDefault()
                   safeCall('showJoinLigaModal')
                 }}>
