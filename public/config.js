@@ -24,7 +24,25 @@ function getSupabaseConfig() {
         
         try {
             // 1. Verificar que Supabase JS esté cargado
-            if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+            // El CDN puede exponer supabase de diferentes formas
+            let supabaseLib = null;
+            
+            // Intentar diferentes formas de acceso
+            if (window.supabase && typeof window.supabase.createClient === 'function') {
+                // Caso 1: window.supabase ya tiene createClient
+                supabaseLib = window.supabase;
+            } else if (window.supabase && typeof window.supabase.default === 'function' && typeof window.supabase.default.createClient === 'function') {
+                // Caso 2: window.supabase es un módulo con default
+                supabaseLib = window.supabase.default;
+            } else if (window.supabasejs && typeof window.supabasejs.createClient === 'function') {
+                // Caso 3: Se expone como supabasejs
+                supabaseLib = window.supabasejs;
+            } else if (window.Supabase && typeof window.Supabase.createClient === 'function') {
+                // Caso 4: Se expone como Supabase (mayúscula)
+                supabaseLib = window.Supabase;
+            }
+            
+            if (!supabaseLib) {
                 return false;
             }
             
@@ -36,7 +54,7 @@ function getSupabaseConfig() {
             }
             
             // 3. Crear cliente de Supabase
-            const supabaseClient = window.supabase.createClient(config.url, config.key);
+            const supabaseClient = supabaseLib.createClient(config.url, config.key);
             window.supabase = supabaseClient;
             window.supabaseClient = supabaseClient;
             window.supabaseReady = true;

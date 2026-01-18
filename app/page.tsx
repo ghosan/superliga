@@ -1535,7 +1535,32 @@ O formato CSV:
       </div>
 
       {/* Scripts - Cargar en orden: Supabase -> config -> app */}
-      <Script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" strategy="afterInteractive" />
+      {/* Usar unpkg que tiene mejor soporte para builds UMD */}
+      <Script 
+        src="https://unpkg.com/@supabase/supabase-js@2" 
+        strategy="afterInteractive"
+        onLoad={() => {
+          console.log('✅ Script de Supabase cargado');
+          // Asegurar que el objeto supabase esté disponible globalmente
+          if (typeof window !== 'undefined') {
+            // El CDN puede exponer supabase de diferentes formas
+            if (window.supabasejs && typeof window.supabasejs.createClient === 'function') {
+              window.supabase = window.supabasejs;
+            } else if (window.supabase && typeof window.supabase.createClient !== 'function' && window.supabasejs) {
+              window.supabase = window.supabasejs;
+            }
+            console.log('Supabase disponible en window:', {
+              hasSupabase: !!window.supabase,
+              hasSupabasejs: !!window.supabasejs,
+              hasCreateClient: !!(window.supabase && typeof window.supabase.createClient === 'function'),
+              keys: Object.keys(window).filter(k => k.toLowerCase().includes('supabase'))
+            });
+          }
+        }}
+        onError={(e) => {
+          console.error('❌ Error cargando script de Supabase:', e);
+        }}
+      />
       <Script src="/config.js" strategy="afterInteractive" />
       <Script src="/app.js" strategy="afterInteractive" />
       <Script src="/live-updates.js" strategy="lazyOnload" />
