@@ -303,8 +303,23 @@ async function handleLogin(event) {
         
         showNotification('¡Bienvenido de nuevo!', 'success');
         
-        // El evento onAuthStateChange se encargará de redirigir al dashboard
-        // Ya no esperamos aquí, el listener se ejecutará automáticamente
+        // Actualizar usuario actual inmediatamente
+        if (data.user) {
+            currentUser = data.user;
+        }
+        
+        // Llamar a showDashboard directamente como respaldo
+        // El evento onAuthStateChange también lo hará, pero esto asegura que funcione
+        try {
+            await loadUserProfile();
+            await showDashboard();
+            // Esperar un momento antes de cargar la competición
+            await new Promise(resolve => setTimeout(resolve, 300));
+            await loadActiveCompetition();
+        } catch (error) {
+            console.error('❌ Error mostrando dashboard después de login:', error);
+            // El evento onAuthStateChange debería manejarlo como respaldo
+        }
     } catch (error) {
         console.error('❌ Error en login (catch):', error);
         showNotification('Error al iniciar sesión. Intenta de nuevo.', 'error');
