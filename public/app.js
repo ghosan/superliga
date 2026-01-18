@@ -2868,13 +2868,9 @@ async function loadPronosticosLigaSelector() {
             return;
         }
 
-        // Filtrar ligas por competición activa en memoria
+        // NO filtrar por competition_id - mostrar TODAS las ligas del usuario
+        // El filtrado puede ocultar ligas válidas que no tienen competition_id
         let filteredLigas = userLigas || [];
-        if (userLigas && userLigas.length > 0 && userLigas[0].ligas?.competition_id !== undefined) {
-            filteredLigas = userLigas.filter(item => 
-                item.ligas && parseInt(item.ligas.competition_id) === currentCompetitionId
-            );
-        }
 
         selector.innerHTML = '<option value="">Selecciona una liga</option>';
 
@@ -2901,7 +2897,7 @@ async function loadPronosticosLigaSelector() {
                             <h3>Selecciona una liga</h3>
                             <p>Por favor, selecciona una liga del menú desplegable para ver y hacer tus pronósticos.</p>
                             <p style="margin-top: 16px;">
-                                <button class="btn btn-primary" onclick="showJoinLigaModal()">
+                                <button class="btn btn-primary" onclick="window.showJoinLigaModal && window.showJoinLigaModal()">
                                     <i class="fas fa-sign-in-alt"></i> Unirse a una Liga
                                 </button>
                             </p>
@@ -3776,6 +3772,123 @@ async function joinLiga(event) {
     }
 }
 
+async function loadUserLigas() {
+    if (!currentUser) {
+        console.warn('⚠️ No hay usuario para cargar ligas');
+        return;
+    }
+
+    const container = document.getElementById('ligas-container');
+    if (!container) {
+        console.error('❌ No se encontró ligas-container');
+        return;
+    }
+
+    container.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i></div>';
+
+    try {
+        const supabase = window.supabase || window.supabaseClient;
+        if (!supabase || !supabase.from) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Error de conexión</h3>
+                    <p>No se pudo conectar con el servidor.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const { data, error } = await supabase
+            .from('liga_members')
+            .select(`
+                liga_id,
+                ligas (
+                    id,
+                    name,
+                    description,
+                    code,
+                    created_by
+                )
+            `)
+            .eq('user_id', currentUser.id);
+
+        if (error) {
+            console.error('❌ Error obteniendo ligas:', error);
+            throw error;
+        }
+
+        if (!data || data.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-users"></i>
+                    <h3>No estás en ninguna liga</h3>
+                    <p>Crea una liga o únete a una existente.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Obtener conteo de miembros para cada liga
+        const ligaIds = data.map(item => item.ligas?.id).filter(Boolean);
+        const { data: memberCounts } = await supabase
+            .from('liga_members')
+            .select('liga_id')
+            .in('liga_id', ligaIds);
+
+        const counts = {};
+        memberCounts?.forEach(m => {
+            counts[m.liga_id] = (counts[m.liga_id] || 0) + 1;
+        });
+
+        container.innerHTML = data.map(item => {
+            if (!item.ligas) return '';
+            const liga = item.ligas;
+            const memberCount = counts[liga.id] || 1;
+            
+            return `
+                <div class="liga-card" onclick="window.showLigaDetailModal && window.showLigaDetailModal(${liga.id})">
+                    <div class="liga-card-header">
+                        <h3>${escapeHtml(liga.name)}</h3>
+                        <div class="liga-members">
+                            <i class="fas fa-users"></i>
+                            ${memberCount} miembros
+                        </div>
+                    </div>
+                    ${liga.description ? `<p class="liga-description">${escapeHtml(liga.description)}</p>` : ''}
+                    <div class="liga-code">
+                        <i class="fas fa-key"></i>
+                        <span>${liga.code}</span>
+                        <button class="btn btn-small" onclick="event.stopPropagation(); window.copyToClipboard && window.copyToClipboard('${liga.code}')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <div class="liga-share">
+                        <button class="share-btn facebook" onclick="event.stopPropagation(); window.shareOnFacebook && window.shareOnFacebook('${liga.code}')">
+                            <i class="fab fa-facebook"></i>
+                        </button>
+                        <button class="share-btn twitter" onclick="event.stopPropagation(); window.shareOnTwitter && window.shareOnTwitter('${liga.code}')">
+                            <i class="fab fa-twitter"></i>
+                        </button>
+                        <button class="share-btn whatsapp" onclick="event.stopPropagation(); window.shareOnWhatsapp && window.shareOnWhatsapp('${liga.code}')">
+                            <i class="fab fa-whatsapp"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error cargando ligas:', error);
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error</h3>
+                <p>No se pudieron cargar las ligas. Por favor, intenta de nuevo.</p>
+            </div>
+        `;
+    }
+}
+
 async function leaveLiga(ligaId) {
     if (!currentUser) {
         showNotification('Debes iniciar sesión', 'error');
@@ -3803,10 +3916,8 @@ async function leaveLiga(ligaId) {
 
         showNotification('Has abandonado la liga', 'success');
         
-        // Recargar ligas si existe la función
-        if (typeof loadUserLigas === 'function') {
-            await loadUserLigas();
-        }
+        // Recargar ligas
+        await loadUserLigas();
     } catch (error) {
         console.error('Error abandonando liga:', error);
         showNotification('Error al abandonar la liga', 'error');
@@ -4143,6 +4254,7 @@ window.showLigaDetailModal = showLigaDetailModal;
 window.createLiga = createLiga;
 window.joinLiga = joinLiga;
 window.leaveLiga = leaveLiga;
+window.loadUserLigas = loadUserLigas;
 window.copyToClipboard = copyToClipboard;
 window.shareOnFacebook = shareOnFacebook;
 window.shareOnTwitter = shareOnTwitter;
